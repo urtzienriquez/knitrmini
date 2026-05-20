@@ -148,7 +148,7 @@ build_preamble <- function(doc) {
 
   colors_used <- character()
 
-  if (grepl("shadecolor", doc) && !has_definecolor(doc, "shadecolor")) {
+  if (grepl("shadecolor", doc) && !has_definecolor(doc, "shadecolor") && !has_shaded) {
     colors_used <- c(colors_used, "\\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}")
   }
 

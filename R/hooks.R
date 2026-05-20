@@ -72,11 +72,6 @@ hooks_latex <- function() {
       render_figures(x, options)
     },
     text = identity,
-    evaluate = function(...) evaluate::evaluate(...),
-    evaluate.inline = function(code, envir = knit_global()) {
-      v <- withVisible(eval(parse_only(code), envir = envir))
-      if (v$visible) knit_print(v$value, inline = TRUE, options = opts_chunk$get())
-    },
     document = identity
   )
 }

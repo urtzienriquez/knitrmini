@@ -37,7 +37,7 @@ new_defaults <- function(value = list()) {
   append <- function(...) {
     dots <- resolve(...)
     for (i in names(dots)) dots[[i]] <- c(defaults[[i]], dots[[i]])
-    set2(dots)
+    set(dots)
   }
   list(get = get, set = set, delete = delete, append = append, merge = merge, restore = restore)
 }

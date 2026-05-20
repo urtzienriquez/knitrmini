@@ -311,12 +311,6 @@ parse_latex_log <- function(log_path) {
       i <- i + 1
       next
     }
-    if (grepl("LaTeX Warning:.*Reference.*undefined", line)) {
-      undefined_refs <- c(undefined_refs, line)
-    }
-    if (grepl("LaTeX Warning:.*Citation.*undefined", line)) {
-      undefined_citations <- c(undefined_citations, line)
-    }
     i <- i + 1
   }
 
@@ -422,7 +416,6 @@ is_abs_path <- function(x) {
 }
 
 text_to_tex <- function(text) {
-  text <- gsub("\r\n", "\n", text, useBytes = TRUE)
   split_lines(text)
 }
 

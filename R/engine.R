@@ -234,7 +234,7 @@ sew <- function(res, options, inline = FALSE) {
 }
 
 is_plot_output <- function(x) {
-  evaluate::is.recordedplot(x) || inherits(x, "knit_image_paths")
+  evaluate::is.recordedplot(x)
 }
 
 save_plot <- function(plot, options) {
