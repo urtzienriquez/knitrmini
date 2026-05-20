@@ -40,7 +40,7 @@ call_block <- function(block) {
     if (!params$eval) {
       return("")
     }
-    cmds <- lapply(sc_split(params$child), knit_child, options = block$params)
+    cmds <- lapply(sc_split(params$child), knit_child)
     out <- one_string(unlist(cmds))
     return(out)
   }
@@ -163,6 +163,14 @@ eng_r <- function(options) {
     fig.num <- 0L
   }
   options$fig.num <- fig.num
+
+  obj.after <- ls(envir = env, all.names = TRUE)
+  new_objects <- setdiff(obj.after, obj.before)
+  code_symbols <- find_symbols(code)
+  globals <- setdiff(code_symbols, obj.before)
+  options$.objects <- new_objects
+  options$.globals <- globals
+  dep_auto(options, list(objects = new_objects, globals = globals))
 
   output <- unlist(sew(res, options))
   output <- paste(c(output), collapse = "")
@@ -401,7 +409,7 @@ inline_exec <- function(block, envir = knit_global(), hook = knit_hooks$get("inl
   }
 }
 
-knit_child <- function(child, options = list()) {
+knit_child <- function(child) {
   child_path <- paste0(opts_knit$get("child.path"), child)
   if (!file.exists(child_path)) {
     child_path <- file.path(input_dir(), child_path)
@@ -409,7 +417,6 @@ knit_child <- function(child, options = list()) {
   if (!file.exists(child_path)) stop("Child document not found: ", child)
 
   optk <- opts_knit$get()
-  opth <- opts_knit$get("header")
   on.exit(opts_knit$restore(optk), add = TRUE)
   opts_knit$set(child = TRUE, parent = FALSE)
 
@@ -453,7 +460,7 @@ knit_print <- function(x, ...) {
   UseMethod("knit_print")
 }
 
-knit_print.default <- function(x, inline = FALSE, options = NULL) {
+knit_print.default <- function(x, inline = FALSE, ...) {
   if (inline) {
     x
   } else {
@@ -465,7 +472,7 @@ knit_print.default <- function(x, inline = FALSE, options = NULL) {
   }
 }
 
-hilight_source <- function(x, format = "latex", options = NULL) {
+hilight_source <- function(x, format = "latex") {
   if (!requireNamespace("highr", quietly = TRUE)) {
     return(x)
   }

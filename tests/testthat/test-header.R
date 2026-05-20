@@ -1,3 +1,5 @@
+library(knitrmini)
+
 test_that("build_preamble empty doc returns empty", {
   result <- knitrmini:::build_preamble("plain text no special commands")
   expect_equal(result, character(0))

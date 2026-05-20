@@ -1,5 +1,3 @@
-knit_patterns <- NULL
-
 all_patterns <- list(
   `rnw` = list(
     chunk.begin = "^\\s*<<(.*)>>=.*$",

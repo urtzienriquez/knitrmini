@@ -1,3 +1,5 @@
+library(knitrmini)
+
 test_that(".inline.hook handles numeric and character", {
   expect_equal(knitrmini:::.inline.hook(1.234), "1.234")
   expect_equal(knitrmini:::.inline.hook(c(1, 2, 3)), "1, 2, 3")

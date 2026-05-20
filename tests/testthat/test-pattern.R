@@ -1,3 +1,5 @@
+library(knitrmini)
+
 test_that("detect_pattern returns rnw for .Rnw extension", {
   expect_equal(knitrmini:::detect_pattern("<<foo>>=\n1+1\n@", "rnw"), "rnw")
   expect_equal(knitrmini:::detect_pattern("<<foo>>=\n1+1\n@", "snw"), "rnw")

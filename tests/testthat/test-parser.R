@@ -37,20 +37,20 @@ test_that("strip_block removes prefix from code lines", {
 })
 
 test_that("parse_block extracts label and creates block object", {
-  block <- knitrmini:::parse_block("1+1", "label = mychunk", "label = mychunk")
+  block <- knitrmini:::parse_block("1+1", "label = mychunk")
   expect_s3_class(block, "block")
   expect_equal(block$params$label, "mychunk")
 })
 
 test_that("parse_block assigns auto-label when missing", {
   knitrmini:::chunk_counter(reset = TRUE)
-  block <- knitrmini:::parse_block("1+1", "", "")
+  block <- knitrmini:::parse_block("1+1", "")
   expect_true(grepl("unnamed-chunk", block$params$label))
 })
 
 test_that("parse_block handles dependson", {
   knitrmini:::dep_list$restore()
-  block <- knitrmini:::parse_block("1+1", "dependson = otherchunk", "dependson = otherchunk")
+  block <- knitrmini:::parse_block("1+1", "dependson = otherchunk")
   expect_equal(knitrmini:::dep_list$get("otherchunk"), block$params$label)
 })
 

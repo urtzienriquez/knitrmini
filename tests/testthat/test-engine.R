@@ -1,3 +1,5 @@
+library(knitrmini)
+
 test_that("dev2ext maps device names to extensions", {
   expect_equal(knitrmini:::dev2ext(list(dev = "pdf")), "pdf")
   expect_equal(knitrmini:::dev2ext(list(dev = "png")), "png")

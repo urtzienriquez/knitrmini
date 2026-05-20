@@ -1,3 +1,5 @@
+library(knitrmini)
+
 test_that("new_defaults get/set/delete", {
   d <- knitrmini:::new_defaults(list(a = 1, b = 2))
   expect_equal(d$get("a"), 1)
