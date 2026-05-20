@@ -1,0 +1,30 @@
+Package: knitrmini
+Type: Package
+Title: Minimal Knitr Engine for Rnw -> TeX -> PDF
+Version: 0.1.0
+Description: A minimal rewrite of knitr supporting rnoweb (.Rnw) to LaTeX
+    to PDF conversion, with full knitr-compatible chunk options and caching.
+    Produces clean LaTeX output without knitrout/kframe wrapping.
+Depends:
+    R (>= 3.6.0)
+Imports:
+    evaluate (>= 0.15),
+    highr (>= 0.11),
+    xfun (>= 0.52),
+    digest,
+    tools,
+    methods
+Suggests:
+    tinytex (>= 0.56)
+License: GPL
+Collate:
+    'options.R'
+    'pattern.R'
+    'parser.R'
+    'cache.R'
+    'hooks.R'
+    'header.R'
+    'engine.R'
+    'knit.R'
+    'zzz.R'
+Encoding: UTF-8
