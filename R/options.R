@@ -116,8 +116,10 @@ one_string <- function(x, ...) {
 }
 
 split_lines <- function(x) {
+  if (length(x) < 1) return(character(0))
   x <- gsub("\r\n", "\n", x, useBytes = TRUE)
-  x <- gsub("\r$", "", x, useBytes = TRUE)
+  x <- gsub("\r", "\n", x, useBytes = TRUE)
+  if (!nzchar(x)) return("")
   strsplit(x, "\n")[[1]]
 }
 
@@ -127,6 +129,7 @@ is_blank <- function(x) {
 
 sc_split <- function(string) {
   if (is.call(string)) string <- eval(string)
+  if (is.symbol(string)) string <- deparse(string)
   if (is.numeric(string) || length(string) != 1L) {
     return(string)
   }

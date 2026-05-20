@@ -171,7 +171,7 @@ output_asis <- function(x, options) {
 }
 
 escape_latex <- function(s, newlines = FALSE, spaces = FALSE) {
-  s <- gsub("\\", "\\textbackslash{}", s, fixed = TRUE)
+  s <- gsub("\\", "\aBS\a", s, fixed = TRUE)
   s <- gsub("{", "\\{", s, fixed = TRUE)
   s <- gsub("}", "\\}", s, fixed = TRUE)
   s <- gsub("$", "\\$", s, fixed = TRUE)
@@ -181,6 +181,7 @@ escape_latex <- function(s, newlines = FALSE, spaces = FALSE) {
   s <- gsub("_", "\\_", s, fixed = TRUE)
   s <- gsub("^", "\\^{}", s, fixed = TRUE)
   s <- gsub("~", "\\textasciitilde{}", s, fixed = TRUE)
+  s <- gsub("\aBS\a", "\\textbackslash{}", s, fixed = TRUE)
   s
 }
 
@@ -198,7 +199,7 @@ round_digits <- function(x) {
 
 format_sci_one <- function(x, format = "latex") {
   if (!(class(x)[1] == "numeric") || is.na(x) || x == 0) {
-    return(as.character(x))
+    return(if (is.na(x)) "NA" else as.character(x))
   }
   if (is.infinite(x)) {
     return(sprintf("%s\\infty{}", ifelse(x < 0, "-", "")))

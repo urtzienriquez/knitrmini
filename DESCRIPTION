@@ -15,6 +15,7 @@ Imports:
     tools,
     methods
 Suggests:
+    testthat (>= 3.0.0),
     tinytex (>= 0.56)
 License: GPL
 Collate:

@@ -16,10 +16,12 @@ detect_pattern <- function(text, ext) {
   if (ext %in% c("rnw", "snw", "stex")) {
     return("rnw")
   }
+  lines <- split_lines(text)
+  if (is.null(lines) || length(lines) == 0) return(NULL)
   for (n in names(all_patterns)) {
     p <- all_patterns[[n]]
     if (is.null(p$chunk.begin) || is.null(p$chunk.end)) next
-    if (any(grepl(p$chunk.begin, text)) && any(grepl(p$chunk.end, text))) {
+    if (any(grepl(p$chunk.begin, lines)) && any(grepl(p$chunk.end, lines))) {
       return(n)
     }
   }
@@ -31,10 +33,13 @@ group_pattern <- function(pattern) {
 }
 
 out_format <- function(fmt = NULL) {
+  cur <- opts_knit$get("out.format")
   if (is.null(fmt)) {
-    opts_knit$get("out.format")
+    cur
+  } else if (is.null(cur)) {
+    FALSE
   } else {
-    opts_knit$get("out.format") %in% fmt
+    cur %in% fmt
   }
 }
 
