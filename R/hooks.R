@@ -106,12 +106,19 @@ render_figures <- function(figures, options) {
   f_pos <- options$fig.pos
   f_env <- options$fig.env
   f_lp <- options$fig.lp
+  f_align <- options$fig.align
 
   if (is.null(f_env) && !is.null(caption)) {
     f_env <- "figure"
   }
   if (is.null(f_pos) || !nzchar(f_pos)) {
     f_pos <- "!h"
+  }
+
+  align_env <- if (is.null(f_align) || f_align == "default") {
+    ""
+  } else {
+    switch(f_align, center = "center", left = "flushleft", right = "flushright", "")
   }
 
   attribs <- ""
@@ -131,6 +138,10 @@ render_figures <- function(figures, options) {
     result <- paste0(result, sprintf("\\begin{%s}[%s]\n", f_env, f_pos))
   }
 
+  if (nzchar(align_env)) {
+    result <- paste0(result, sprintf("\\begin{%s}\n", align_env))
+  }
+
   for (fig in figures) {
     if (grepl("\\.tex$", fig)) {
       result <- paste0(result, sprintf("\\input{%s}\n", sans_ext(fig)))
@@ -142,12 +153,18 @@ render_figures <- function(figures, options) {
   }
 
   if (!is.null(caption)) {
-    result <- paste0(result, "\\center\n")
+    if (!nzchar(align_env)) {
+      result <- paste0(result, "\\center\n")
+    }
     result <- paste0(result, sprintf("\\caption{%s}\n", caption))
   }
 
   if (!is.null(options$label) && !is.null(f_env)) {
     result <- paste0(result, sprintf("\\label{%s%s}\n", f_lp %n% "fig:", options$label))
+  }
+
+  if (nzchar(align_env)) {
+    result <- paste0(result, sprintf("\\end{%s}\n", align_env))
   }
 
   if (!is.null(f_env)) {

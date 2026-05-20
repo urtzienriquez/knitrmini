@@ -54,7 +54,7 @@ opts_chunk <- new_defaults(list(
   dev = NULL, dev.args = NULL, dpi = 72, fig.ext = NULL,
   fig.width = 7, fig.height = 7,
   fig.env = NULL, fig.cap = NULL, fig.lp = "fig:",
-  fig.pos = "", out.width = NULL, out.height = NULL,
+  fig.pos = "", fig.align = "default", out.width = NULL, out.height = NULL,
   out.extra = NULL, interval = 1, aniopts = "controls,loop",
   warning = TRUE, error = TRUE, message = TRUE,
   render = NULL,

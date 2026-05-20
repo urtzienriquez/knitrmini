@@ -142,3 +142,72 @@ test_that("sans_ext handles edge cases", {
   expect_equal(knitrmini:::sans_ext("."), ".")
   expect_equal(knitrmini:::sans_ext(".hidden"), ".hidden")
 })
+
+test_that("render_figures with fig.align = center", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "center"))
+  expect_match(result, "\\\\begin\\{center\\}")
+  expect_match(result, "\\\\end\\{center\\}")
+  expect_match(result, "\\\\includegraphics\\{figure/test-1\\}")
+})
+
+test_that("render_figures with fig.align = left", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "left"))
+  expect_match(result, "\\\\begin\\{flushleft\\}")
+  expect_match(result, "\\\\end\\{flushleft\\}")
+})
+
+test_that("render_figures with fig.align = right", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "right"))
+  expect_match(result, "\\\\begin\\{flushright\\}")
+  expect_match(result, "\\\\end\\{flushright\\}")
+})
+
+test_that("render_figures with fig.align = default has no alignment env", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "default"))
+  expect_no_match(result, "\\\\begin\\{(?:center|flushleft|flushright)\\}")
+})
+
+test_that("render_figures with fig.align center and caption suppresses \\center", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = "A caption",
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "center"))
+  expect_match(result, "\\\\begin\\{center\\}")
+  expect_match(result, "\\\\caption\\{A caption\\}")
+  expect_no_match(result, "\\\\center\n")
+})
+
+test_that("render_figures with fig.align center and figure env nests correctly", {
+  result <- knitrmini:::render_figures("figure/test-1.pdf",
+    list(fig.pos = "", fig.env = "figure", fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "center"))
+  lines <- strsplit(result, "\n")[[1]]
+  fig_begin <- grep("\\\\begin\\{figure\\}", lines)
+  center_begin <- grep("\\\\begin\\{center\\}", lines)
+  center_end <- grep("\\\\end\\{center\\}", lines)
+  fig_end <- grep("\\\\end\\{figure\\}", lines)
+  expect_lt(fig_begin, center_begin)
+  expect_lt(center_begin, center_end)
+  expect_lt(center_end, fig_end)
+})
+
+test_that("render_figures multiple figures with fig.align wrapped together", {
+  result <- knitrmini:::render_figures(c("fig1.pdf", "fig2.pdf"),
+    list(fig.pos = "", fig.env = NULL, fig.lp = "fig:", fig.cap = NULL,
+      label = "test", out.width = NULL, out.height = NULL, fig.align = "center"))
+  lines <- strsplit(result, "\n")[[1]]
+  center_begin <- grep("\\\\begin\\{center\\}", lines)
+  img1 <- grep("\\\\includegraphics\\{fig1\\}", lines)
+  img2 <- grep("\\\\includegraphics\\{fig2\\}", lines)
+  center_end <- grep("\\\\end\\{center\\}", lines)
+  expect_lt(center_begin, img1)
+  expect_lt(img1, img2)
+  expect_lt(img2, center_end)
+})
