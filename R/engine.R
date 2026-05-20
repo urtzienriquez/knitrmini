@@ -290,6 +290,9 @@ save_plot <- function(plot, options) {
       }
     )
   }
+  if (opts_knit$get("normalize_paths")) {
+    fname <- normalizePath(fname, mustWork = FALSE)
+  }
   knit_hooks$get("plot")(fname, options)
 }
 

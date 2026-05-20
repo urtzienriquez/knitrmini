@@ -74,7 +74,8 @@ opts_knit <- new_defaults(list(
   out.format = NULL, child = FALSE, parent = FALSE,
   aliases = NULL, resolve_input = TRUE,
   header = c(highlight = "", framed = ""),
-  minted_style = NULL, engine = "pdflatex"
+  minted_style = NULL, engine = "pdflatex",
+  normalize_paths = TRUE
 ))
 
 opts_hooks <- new_defaults(list())

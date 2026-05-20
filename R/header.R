@@ -106,7 +106,7 @@ build_preamble <- function(doc) {
       needed <- c(needed, "\\definecolor{shadecolor}{RGB}{248,248,248}")
     }
     if (!has_defineverbatimenvironment(doc, "Highlighting")) {
-      hl_opts <- "commandchars=\\\\\\{\\},breaklines=true"
+      hl_opts <- "commandchars=\\\\\\{\\}"
       if (is_beamer) hl_opts <- paste0(hl_opts, ",fontsize=\\footnotesize")
       needed <- c(needed, sprintf("\\DefineVerbatimEnvironment{Highlighting}{Verbatim}{%s}", hl_opts))
     }
@@ -126,7 +126,8 @@ build_preamble <- function(doc) {
   }
 
   fig_path <- opts_chunk$get("fig.path") %n% "figure/"
-  if (grepl(sprintf("\\\\input\\{%s", fig_path), doc) && !has_package(doc, "tikz")) {
+  escaped_fp <- gsub("([][{}()*+?.\\\\^$|])", "\\\\\\1", fig_path)
+  if (grepl(sprintf("\\\\input\\{[^}]*%s", escaped_fp), doc, perl = TRUE) && !has_package(doc, "tikz")) {
     needed <- c(needed, "\\usepackage{tikz}")
   }
 

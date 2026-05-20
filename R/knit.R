@@ -94,6 +94,10 @@ knit <- function(
     out_text <- resolve_inputs(out_text)
   }
 
+  if (opts_knit$get("normalize_paths")) {
+    out_text <- resolve_includegraphics(out_text, input_dir())
+  }
+
   out_text <- clean_output(out_text)
 
   if (in.file) {
@@ -442,6 +446,54 @@ resolve_inputs <- function(doc) {
       doc <- paste0(substr(doc, 1, start - 1), content, substr(doc, end + 1, nchar(doc)))
     } else {
       break
+    }
+  }
+  doc
+}
+
+normalize_path <- function(path) {
+  tryCatch(
+    normalizePath(path, mustWork = TRUE),
+    error = function(e) {
+      parts <- strsplit(path, "/|\\\\")[[1]]
+      result <- character()
+      for (p in parts) {
+        if (p == "." || p == "") next
+        if (p == ".." && length(result) > 0) {
+          result <- result[-length(result)]
+        } else {
+          result <- c(result, p)
+        }
+      }
+      prefix <- if (grepl("^/", path)) "/" else ""
+      paste0(prefix, paste(result, collapse = "/"))
+    }
+  )
+}
+
+resolve_includegraphics <- function(doc, input_dir) {
+  doc <- one_string(doc)
+  pattern <- paste0(
+    "\\\\includegraphics\\*?",
+    "(?:\\[[^]]*(?:\\{[^}]*\\}[^]]*)*\\])?",
+    "\\{([^}]+)\\}"
+  )
+  idx <- 1
+  while (idx <= nchar(doc)) {
+    chunk <- substr(doc, idx, nchar(doc))
+    m <- regexpr(pattern, chunk, perl = TRUE)
+    if (m == -1) break
+    match_len <- attr(m, "match.length")
+    m <- m + idx - 1
+    matched <- substr(doc, m, m + match_len - 1)
+    path <- gsub(pattern, "\\1", matched)
+    if (!is_abs_path(path)) {
+      resolved <- normalize_path(file.path(input_dir, path))
+      new_matched <- sub(paste0("{", path, "}"), paste0("{", resolved, "}"), matched, fixed = TRUE)
+      doc <- paste0(substr(doc, 1, m - 1), new_matched, substr(doc, m + match_len, nchar(doc)))
+      idx <- m + nchar(new_matched)
+    } else {
+      idx <- m + match_len
     }
   }
   doc
