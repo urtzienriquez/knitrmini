@@ -59,7 +59,8 @@ opts_chunk <- new_defaults(list(
   warning = TRUE, error = TRUE, message = TRUE,
   render = NULL,
   ref.label = NULL, child = NULL, engine = "R", split = FALSE, include = TRUE,
-  minted = FALSE, minted_style = NULL
+  minted = FALSE, minted_style = NULL,
+  external = TRUE
 ))
 
 opts_current <- new_defaults()

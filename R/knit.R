@@ -66,6 +66,7 @@ knit <- function(
     pattern_name <- detect_pattern(txt, ext)
     if (!is.null(pattern_name)) knit_patterns$restore(all_patterns[[pattern_name]])
     render_latex()
+    set_preamble(text)
   }
 
   if (!quiet) cat("Processing ", input, "\n", sep = "")

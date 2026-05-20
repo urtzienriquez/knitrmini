@@ -42,8 +42,8 @@ hooks_latex <- function() {
         style <- opts_knit$get("minted_style") %n% options$minted_style
         has_style <- !is.null(style) && is.character(style) && nzchar(style)
         minted_bg <- !has_style || isTRUE(.knitEnv$has_user_knitbg)
-        opts <- "fontsize=\\small, xleftmargin=0.5em"
-        if (minted_bg) opts <- paste0(opts, ", bgcolor=knitbg")
+        opts <- ""
+        if (minted_bg) opts <- "bgcolor=knitbg"
         one_string(c(sprintf("\\begin{minted}[%s]{r}", opts), x, "\\end{minted}", ""))
       } else {
         x <- hilight_source(x, "latex", options)
@@ -137,7 +137,9 @@ render_figures <- function(figures, options) {
   }
 
   for (fig in figures) {
-    if (nzchar(attribs)) {
+    if (grepl("\\.tex$", fig)) {
+      result <- paste0(result, sprintf("\\input{%s}\n", sans_ext(fig)))
+    } else if (nzchar(attribs)) {
       result <- paste0(result, sprintf("\\includegraphics[%s]{%s}\n", attribs, sans_ext(fig)))
     } else {
       result <- paste0(result, sprintf("\\includegraphics{%s}\n", sans_ext(fig)))

@@ -70,6 +70,8 @@ build_preamble <- function(doc) {
   has_shaded <- grepl("\\\\begin\\{Shaded\\}", doc)
   has_minted <- grepl("\\\\begin\\{minted\\}", doc)
 
+  is_beamer <- grepl("\\\\documentclass(\\[.*?\\])?\\{beamer\\}", doc)
+
   if (has_highlight || has_shaded || has_minted || grepl("\\\\textcolor|\\\\color\\{|\\\\definecolor", doc)) {
     if (!has_package(doc, "xcolor")) {
       needed <- c(needed, "\\usepackage{xcolor}")
@@ -104,7 +106,9 @@ build_preamble <- function(doc) {
       needed <- c(needed, "\\definecolor{shadecolor}{RGB}{248,248,248}")
     }
     if (!has_defineverbatimenvironment(doc, "Highlighting")) {
-      needed <- c(needed, "\\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\\\\{\\}}")
+      hl_opts <- "commandchars=\\\\\\{\\},breaklines=true"
+      if (is_beamer) hl_opts <- paste0(hl_opts, ",fontsize=\\footnotesize")
+      needed <- c(needed, sprintf("\\DefineVerbatimEnvironment{Highlighting}{Verbatim}{%s}", hl_opts))
     }
     if (!has_newenvironment(doc, "Shaded")) {
       needed <- c(needed, "\\newenvironment{Shaded}{\\begin{snugshade}}{\\end{snugshade}}")
@@ -119,6 +123,11 @@ build_preamble <- function(doc) {
 
   if (grepl("\\\\maxwidth", doc)) {
     needed <- c(needed, .header.maxwidth)
+  }
+
+  fig_path <- opts_chunk$get("fig.path") %n% "figure/"
+  if (grepl(sprintf("\\\\input\\{%s", fig_path), doc) && !has_package(doc, "tikz")) {
+    needed <- c(needed, "\\usepackage{tikz}")
   }
 
   if (has_highlight) {

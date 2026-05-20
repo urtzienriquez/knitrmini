@@ -153,6 +153,8 @@ eng_r <- function(options) {
   res <- filter_evaluate(res, options$warning, evaluate::is.warning)
   res <- filter_evaluate(res, options$message, evaluate::is.message)
 
+  res <- merge_plots(res, options$fig.keep)
+
   if (length(res)) {
     fig.num <- sum(sapply(res, function(x) {
       if (is_plot_output(x)) 1 else 0
@@ -180,6 +182,11 @@ chunk_device <- function(options, record = TRUE, tmp = tempfile()) {
   dpi <- options$dpi %n% 72L
   if (identical(dev, "pdf")) {
     grDevices::pdf(tmp, width = width, height = height)
+  } else if (identical(dev, "tikz")) {
+    if (!requireNamespace("tikzDevice", quietly = TRUE))
+      stop("Package 'tikzDevice' required for dev='tikz'")
+    packages <- c(getOption("tikzLatexPackages"), .knitEnv$tikzPackages)
+    tikzDevice::tikz(tmp, width = width, height = height, packages = packages)
   } else if (identical(dev, "png")) {
     grDevices::png(tmp, width = width, height = height, units = "in", res = dpi)
   } else if (identical(dev, "svg")) {
@@ -197,6 +204,7 @@ dev2ext <- function(options) {
     png = "png",
     svg = "svg",
     jpeg = "jpg",
+    tikz = "tex",
     "pdf"
   )
 }
@@ -246,7 +254,18 @@ save_plot <- function(plot, options) {
     tryCatch(
       {
         dev <- dev.cur()
-        pdf(fname, width = options$fig.width[1L], height = options$fig.height[1L])
+        dev_name <- options$dev %n% "pdf"
+        if (identical(dev_name, "tikz")) {
+          if (!requireNamespace("tikzDevice", quietly = TRUE))
+            stop("Package 'tikzDevice' required for dev='tikz'")
+          external <- isTRUE(options$external %n% TRUE)
+          packages <- c(getOption("tikzLatexPackages"), .knitEnv$tikzPackages)
+          tikzDevice::tikz(fname, width = options$fig.width[1L],
+            height = options$fig.height[1L],
+            standAlone = external, packages = packages)
+        } else {
+          pdf(fname, width = options$fig.width[1L], height = options$fig.height[1L])
+        }
         tryCatch(
           {
             grDevices:::replayPlot(plot)
@@ -256,6 +275,13 @@ save_plot <- function(plot, options) {
           }
         )
         dev.off()
+        if (identical(dev_name, "tikz") && isTRUE(options$external %n% TRUE)) {
+          owd <- setwd(dirname(fname))
+          on.exit(setwd(owd), add = TRUE)
+          tools::texi2pdf(basename(fname), clean = TRUE, quiet = TRUE)
+          setwd(owd)
+          fname <- paste0(prefix, "-", fig.cur, ".pdf")
+        }
         dev.set(dev)
       },
       error = function(e) {
@@ -280,6 +306,40 @@ merge_class <- function(res, class = "source") {
     }
   }
   res
+}
+
+merge_plots <- function(res, keep) {
+  if (is.numeric(keep)) {
+    if (length(keep) == 0) return(res[!sapply(res, is_plot_output)])
+    return(res)
+  }
+  if (!is.character(keep) || length(keep) != 1) return(res)
+
+  is_plot <- sapply(res, is_plot_output)
+  if (!any(is_plot)) return(res)
+
+  plot_idx <- which(is_plot)
+
+  switch(keep,
+    "none" = res[!is_plot],
+    "first" = {
+      if (length(plot_idx) <= 1) return(res)
+      keep_plot <- plot_idx[1]
+      c(res[seq_len(keep_plot)], res[!is_plot & seq_along(res) > keep_plot])
+    },
+    "last" = {
+      if (length(plot_idx) <= 1) return(res)
+      keep_plot <- tail(plot_idx, 1)
+      c(res[seq_len(keep_plot)], res[!is_plot & seq_along(res) > keep_plot])
+    },
+    "high" = {
+      runs <- split(plot_idx, cumsum(c(TRUE, diff(plot_idx) != 1)))
+      keep_plots <- unlist(lapply(runs, tail, 1))
+      keep_idx <- sort(c(which(!is_plot), keep_plots))
+      res[keep_idx]
+    },
+    res
+  )
 }
 
 merge_character <- function(res) {
@@ -411,4 +471,24 @@ hilight_source <- function(x, format = "latex", options = NULL) {
   } else {
     x
   }
+}
+
+set_preamble <- function(input) {
+  if (!out_format("latex")) return(invisible())
+  .knitEnv$tikzPackages <- NULL
+  doc_begin <- knit_patterns$get("document.begin")
+  header_begin <- knit_patterns$get("header.begin")
+  if (is.null(doc_begin) || is.null(header_begin)) return(invisible())
+  idx2 <- grep(doc_begin, input)[1]
+  if (is.na(idx2) || idx2 < 2) return(invisible())
+  idx1 <- grep(header_begin, input)[1]
+  if (is.na(idx1) || idx1 >= idx2) return(invisible())
+  txt <- one_string(input[idx1:(idx2 - 1)])
+  idx <- str_locate(txt, header_begin, FALSE)
+  options(tikzDocumentDeclaration = substr(txt, idx[, 1], idx[, 2]))
+  preamble <- substr(txt, idx[, 2] + 1, nchar(txt))
+  preamble <- split_lines(preamble)
+  preamble <- grep("^\\s*$", preamble, value = TRUE, invert = TRUE)
+  preamble <- grep("^\\s*%", preamble, value = TRUE, invert = TRUE)
+  .knitEnv$tikzPackages <- c(preamble, "\n")
 }

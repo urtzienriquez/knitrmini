@@ -6,6 +6,7 @@
     GNU Fortran (Debian 14.2.0-19) 14.2.0
 * running under: Debian GNU/Linux 13 (trixie)
 * using session charset: UTF-8
+* using options ‘--no-tests --no-manual’
 * checking for file ‘knitrmini/DESCRIPTION’ ... ERROR
 Required fields missing or empty:
   ‘Author’ ‘Maintainer’
