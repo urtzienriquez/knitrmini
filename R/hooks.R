@@ -5,7 +5,7 @@
 
 .inline.hook.tex <- function(x) {
   if (is.numeric(x)) {
-    x <- format_sci(x, "latex")
+    x <- format_sci(x)
     i <- grep("[}]", x)
     x[i] <- sprintf("\\ensuremath{%s}", x[i])
     if (getOption("OutDec") != ".") x <- sprintf("\\text{%s}", x)
@@ -46,7 +46,7 @@ hooks_latex <- function() {
         if (minted_bg) opts <- "bgcolor=knitbg"
         one_string(c(sprintf("\\begin{minted}[%s]{r}", opts), x, "\\end{minted}", ""))
       } else {
-        x <- hilight_source(x, "latex", options)
+        x <- hilight_source(x, "latex")
         x <- x[nzchar(x)]
         x <- gsub("\n*$", "", x)
         one_string(c("\\begin{Shaded}\n\\begin{Highlighting}[]", x, "\\end{Highlighting}\n\\end{Shaded}", ""))
@@ -72,17 +72,12 @@ hooks_latex <- function() {
       render_figures(x, options)
     },
     text = identity,
-    evaluate = function(...) evaluate::evaluate(...),
-    evaluate.inline = function(code, envir = knit_global()) {
-      v <- withVisible(eval(parse_only(code), envir = envir))
-      if (v$visible) knit_print(v$value, inline = TRUE, options = opts_chunk$get())
-    },
     document = identity
   )
 }
 
-.out.hook <- function(x, options) x
-.plot.hook <- function(x, options) paste(x, collapse = ".")
+.out.hook <- function(x) x
+.plot.hook <- function(x) paste(x, collapse = ".")
 
 .default.hooks <- list(
   source = .out.hook, output = .out.hook, warning = .out.hook,
@@ -165,7 +160,7 @@ render_figures <- function(figures, options) {
 .color.block <- function(color1 = "", color2 = "") {
   function(x, options) {
     x <- gsub("\n*$", "", x)
-    x <- escape_latex(x, newlines = TRUE, spaces = TRUE)
+    x <- escape_latex(x)
     x <- gsub('"', '"{}', x)
     sprintf("\n\n{\\ttfamily\\noindent%s%s%s}", color1, x, color2)
   }
@@ -175,8 +170,8 @@ output_asis <- function(x, options) {
   is_blank(x) || identical(options$results, "asis")
 }
 
-escape_latex <- function(s, newlines = FALSE, spaces = FALSE) {
-  s <- gsub("\\", "\\textbackslash{}", s, fixed = TRUE)
+escape_latex <- function(s) {
+  s <- gsub("\\", "\aBS\a", s, fixed = TRUE)
   s <- gsub("{", "\\{", s, fixed = TRUE)
   s <- gsub("}", "\\}", s, fixed = TRUE)
   s <- gsub("$", "\\$", s, fixed = TRUE)
@@ -186,6 +181,7 @@ escape_latex <- function(s, newlines = FALSE, spaces = FALSE) {
   s <- gsub("_", "\\_", s, fixed = TRUE)
   s <- gsub("^", "\\^{}", s, fixed = TRUE)
   s <- gsub("~", "\\textasciitilde{}", s, fixed = TRUE)
+  s <- gsub("\aBS\a", "\\textbackslash{}", s, fixed = TRUE)
   s
 }
 
@@ -201,9 +197,9 @@ round_digits <- function(x) {
   }
 }
 
-format_sci_one <- function(x, format = "latex") {
+format_sci_one <- function(x) {
   if (!(class(x)[1] == "numeric") || is.na(x) || x == 0) {
-    return(as.character(x))
+    return(if (is.na(x)) "NA" else as.character(x))
   }
   if (is.infinite(x)) {
     return(sprintf("%s\\infty{}", ifelse(x < 0, "-", "")))
@@ -215,9 +211,9 @@ format_sci_one <- function(x, format = "latex") {
   sprintf("%s%s10^{%s}", b, "\\times ", lx)
 }
 
-format_sci <- function(x, ...) {
+format_sci <- function(x) {
   if (inherits(x, "roman")) {
     return(as.character(x))
   }
-  vapply(x, format_sci_one, character(1L), ..., USE.NAMES = FALSE)
+  vapply(x, format_sci_one, character(1L), USE.NAMES = FALSE)
 }

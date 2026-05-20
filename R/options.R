@@ -37,7 +37,7 @@ new_defaults <- function(value = list()) {
   append <- function(...) {
     dots <- resolve(...)
     for (i in names(dots)) dots[[i]] <- c(defaults[[i]], dots[[i]])
-    set2(dots)
+    set(dots)
   }
   list(get = get, set = set, delete = delete, append = append, merge = merge, restore = restore)
 }
@@ -63,9 +63,6 @@ opts_chunk <- new_defaults(list(
   external = TRUE
 ))
 
-opts_current <- new_defaults()
-opts_current$restore(opts_chunk$get())
-
 opts_knit <- new_defaults(list(
   progress = TRUE, verbose = FALSE, global.device = FALSE, global.par = FALSE,
   eval.after = c("fig.cap"),
@@ -74,33 +71,13 @@ opts_knit <- new_defaults(list(
   out.format = NULL, child = FALSE, parent = FALSE,
   aliases = NULL, resolve_input = TRUE,
   header = c(highlight = "", framed = ""),
-  minted_style = NULL, engine = "pdflatex"
+  minted_style = NULL, engine = "pdflatex",
+  normalize_paths = TRUE
 ))
-
-opts_hooks <- new_defaults(list())
-
-opts_template <- new_defaults()
-
-set_alias <- function(...) {
-  opts_knit$set(aliases = c(...))
-}
 
 merge_list <- function(x, y) {
   x[names(y)] <- y
   x
-}
-
-merge_vector <- function(x, y, fun = `%n%`) {
-  if (is.null(names(y))) {
-    utils::head(c(x, y), length(x))
-  } else {
-    x[names(y)] <- mapply(
-      function(a, b) if (is.null(a)) b else if (identical(names(a), names(b))) a else b,
-      x[names(y)], y,
-      SIMPLIFY = FALSE
-    )
-    x
-  }
 }
 
 `%n%` <- function(x, y) if (is.null(x)) y else x
@@ -115,8 +92,10 @@ one_string <- function(x, ...) {
 }
 
 split_lines <- function(x) {
+  if (length(x) < 1) return(character(0))
   x <- gsub("\r\n", "\n", x, useBytes = TRUE)
-  x <- gsub("\r$", "", x, useBytes = TRUE)
+  x <- gsub("\r", "\n", x, useBytes = TRUE)
+  if (!nzchar(x)) return("")
   strsplit(x, "\n")[[1]]
 }
 
@@ -126,6 +105,7 @@ is_blank <- function(x) {
 
 sc_split <- function(string) {
   if (is.call(string)) string <- eval(string)
+  if (is.symbol(string)) string <- deparse(string)
   if (is.numeric(string) || length(string) != 1L) {
     return(string)
   }

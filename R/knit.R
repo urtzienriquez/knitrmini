@@ -1,6 +1,6 @@
 knit <- function(
   input, output = NULL, text = NULL, quiet = FALSE,
-  envir = parent.frame(), encoding = "UTF-8",
+  envir = parent.frame(),
   compile = TRUE, engine = NULL,
   minted_style = NULL, clean = FALSE
 ) {
@@ -75,6 +75,7 @@ knit <- function(
 
   groups <- split_file(text, patterns = knit_patterns$get())
 
+  output_file <- output
   output <- character(length(groups))
   for (i in seq_along(groups)) {
     if (isTRUE(.knitEnv$terminate)) break
@@ -86,7 +87,7 @@ knit <- function(
   } else {
     ""
   }
-  out_text <- paste(text_to_tex(out_text), collapse = "\n")
+  out_text <- paste(split_lines(out_text), collapse = "\n")
 
   out_text <- insert_header(out_text)
 
@@ -94,10 +95,14 @@ knit <- function(
     out_text <- resolve_inputs(out_text)
   }
 
+  if (opts_knit$get("normalize_paths")) {
+    out_text <- resolve_includegraphics(out_text, input_dir())
+  }
+
   out_text <- clean_output(out_text)
 
   if (in.file) {
-    out_path <- guess_output(input)
+    out_path <- output_file %n% guess_output(input)
     xfun::write_utf8(out_text, out_path)
     if (!quiet) cat("Output: ", out_path, "\n", sep = "")
 
@@ -115,7 +120,6 @@ knit <- function(
     }
 
     if (compile) {
-      if (!quiet) cat("Compiling ", out_path, " -> .pdf\n", sep = "")
       pdf_path <- compile_pdf(out_path,
         engine = engine %n% opts_knit$get("engine") %n% "pdflatex",
         quiet = quiet
@@ -147,14 +151,38 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
   tex_file <- normalizePath(tex_file, mustWork = TRUE)
   work_dir <- dirname(tex_file)
   base_name <- xfun::sans_ext(basename(tex_file))
+  pdf_file <- file.path(work_dir, paste0(base_name, ".pdf"))
 
   tex_content <- one_string(xfun::read_utf8(tex_file))
   if (is.null(bib_engine)) {
     bib_engine <- detect_bib_engine(tex_content)
   }
 
+  needs <- determine_passes(tex_content)
+  total_passes <- max(needs$latex, 1L)
+
+  if (file.exists(pdf_file) &&
+      file.mtime(pdf_file) > file.mtime(tex_file)) {
+    bib_cache <- paste0(tex_file, "_bibdigest")
+    aux_file <- paste0(base_name, ".aux")
+    aux_path <- file.path(work_dir, aux_file)
+    if (!is.null(bib_engine) && file.exists(aux_path)) {
+      current_digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
+      if (!is.null(current_digest) && file.exists(bib_cache)) {
+        prev_digest <- readLines(bib_cache, warn = FALSE)
+        if (length(prev_digest) && prev_digest == current_digest) {
+          if (!quiet) cat("  PDF is up to date.\n", sep = "")
+          return(invisible(pdf_file))
+        }
+      }
+    } else if (is.null(bib_engine)) {
+      if (!quiet) cat("  PDF is up to date.\n", sep = "")
+      return(invisible(pdf_file))
+    }
+  }
+
   run_latex <- function(pass) {
-    if (!quiet) cat("  ", engine, " (pass ", pass, "/3)...\n", sep = "")
+    if (!quiet) cat("  ", engine, " (pass ", pass, "/", total_passes, ")...\n", sep = "")
     owd <- setwd(work_dir)
     on.exit(setwd(owd), add = TRUE)
     res <- system2(engine, c(
@@ -163,7 +191,7 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
     ),
     stdout = FALSE, stderr = FALSE
     )
-    if (res != 0) warning(engine, " (pass ", pass, "/3) had non-zero exit")
+    if (res != 0) warning(engine, " (pass ", pass, "/", total_passes, ") had non-zero exit")
     invisible(res == 0)
   }
 
@@ -171,22 +199,35 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
     if (is.null(bib_engine)) {
       return(invisible(TRUE))
     }
-    if (!quiet) cat("  ", bib_engine, "...\n", sep = "")
     aux_file <- paste0(base_name, ".aux")
+    aux_path <- file.path(work_dir, aux_file)
+    bib_cache <- paste0(tex_file, "_bibdigest")
+    if (file.exists(aux_path) && file.exists(bib_cache)) {
+      prev_digest <- readLines(bib_cache, warn = FALSE)
+      current_digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
+      if (length(prev_digest) && !is.null(current_digest) &&
+          prev_digest == current_digest) {
+        if (!quiet) cat("  ", bib_engine, "... up to date.\n", sep = "")
+        return(invisible(TRUE))
+      }
+    }
+    if (!quiet) cat("  ", bib_engine, "...\n", sep = "")
     cmd <- if (bib_engine == "bibtex") c(aux_file) else base_name
     owd <- setwd(work_dir)
     on.exit(setwd(owd), add = TRUE)
     res <- system2(bib_engine, cmd, stdout = FALSE, stderr = FALSE)
     if (res != 0) warning(bib_engine, " step failed, continuing without bibliography")
+    if (file.exists(aux_path)) {
+      digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
+      if (!is.null(digest)) writeLines(digest, bib_cache)
+    }
     invisible(res == 0)
   }
 
-  run_latex(1)
-  run_bib()
-  run_latex(2)
-  run_latex(3)
-
-  pdf_file <- file.path(work_dir, paste0(base_name, ".pdf"))
+  if (needs$latex >= 1) run_latex(1)
+  if (!is.null(bib_engine)) run_bib()
+  if (needs$latex >= 2) run_latex(2)
+  if (needs$latex >= 3) run_latex(3)
 
   if (!quiet) {
     log_path <- file.path(work_dir, paste0(base_name, ".log"))
@@ -207,6 +248,21 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
   }
 }
 
+determine_passes <- function(tex_content) {
+  has_ref <- grepl("\\\\ref\\{", tex_content, perl = TRUE) ||
+    grepl("\\\\pageref\\{", tex_content, perl = TRUE)
+  has_cite <- grepl("\\cite", tex_content, fixed = TRUE) ||
+    grepl("\\nocite", tex_content, fixed = TRUE) ||
+    grepl("\\addbibresource", tex_content, fixed = TRUE)
+  has_toc <- grepl("\\\\tableofcontents", tex_content, fixed = TRUE)
+
+  latex <- 1L
+  if (has_ref || has_toc) latex <- 2L
+  if (has_cite) latex <- 3L
+
+  list(latex = latex, bib = has_cite)
+}
+
 detect_bib_engine <- function(tex_content) {
   if (grepl("\\\\addbibresource\\{", tex_content)) {
     return("biber")
@@ -215,6 +271,11 @@ detect_bib_engine <- function(tex_content) {
     return("bibtex")
   }
   NULL
+}
+
+up_to_date <- function(source_file, target_file) {
+  if (!file.exists(target_file)) return(FALSE)
+  file.mtime(target_file) > file.mtime(source_file)
 }
 
 check_color_definition <- function(clean_preamble) {
@@ -307,12 +368,6 @@ parse_latex_log <- function(log_path) {
       i <- i + 1
       next
     }
-    if (grepl("LaTeX Warning:.*Reference.*undefined", line)) {
-      undefined_refs <- c(undefined_refs, line)
-    }
-    if (grepl("LaTeX Warning:.*Citation.*undefined", line)) {
-      undefined_citations <- c(undefined_citations, line)
-    }
     i <- i + 1
   }
 
@@ -395,8 +450,13 @@ knit2pdf <- function(
   clean = FALSE, envir = parent.frame(), ...
 ) {
   compiler <- compiler %n% opts_knit$get("engine") %n% "pdflatex"
-  tex_file <- knit(input,
-    output = output, quiet = quiet, envir = envir,
+  out_path <- output %n% guess_output(input)
+  pdf_file <- paste0(xfun::sans_ext(out_path), ".pdf")
+  if (up_to_date(input, out_path) && up_to_date(input, pdf_file)) {
+    if (!quiet) cat("Output is up to date.\n", sep = "")
+    return(invisible(pdf_file))
+  }
+  tex_file <- knit(input, output = output, quiet = quiet, envir = envir,
     compile = FALSE, engine = compiler, ...
   )
   if (!quiet) cat("Compiling ", tex_file, " -> .pdf\n", sep = "")
@@ -415,11 +475,6 @@ knit_global_set <- function(envir) {
 
 is_abs_path <- function(x) {
   grepl("^(/|[A-Za-z]:)", x)
-}
-
-text_to_tex <- function(text) {
-  text <- gsub("\r\n", "\n", text, useBytes = TRUE)
-  split_lines(text)
 }
 
 resolve_inputs <- function(doc) {
@@ -442,6 +497,54 @@ resolve_inputs <- function(doc) {
       doc <- paste0(substr(doc, 1, start - 1), content, substr(doc, end + 1, nchar(doc)))
     } else {
       break
+    }
+  }
+  doc
+}
+
+normalize_path <- function(path) {
+  tryCatch(
+    normalizePath(path, mustWork = TRUE),
+    error = function(e) {
+      parts <- strsplit(path, "/|\\\\")[[1]]
+      result <- character()
+      for (p in parts) {
+        if (p == "." || p == "") next
+        if (p == ".." && length(result) > 0) {
+          result <- result[-length(result)]
+        } else {
+          result <- c(result, p)
+        }
+      }
+      prefix <- if (grepl("^/", path)) "/" else ""
+      paste0(prefix, paste(result, collapse = "/"))
+    }
+  )
+}
+
+resolve_includegraphics <- function(doc, input_dir) {
+  doc <- one_string(doc)
+  pattern <- paste0(
+    "\\\\includegraphics\\*?",
+    "(?:\\[[^]]*(?:\\{[^}]*\\}[^]]*)*\\])?",
+    "\\{([^}]+)\\}"
+  )
+  idx <- 1
+  while (idx <= nchar(doc)) {
+    chunk <- substr(doc, idx, nchar(doc))
+    m <- regexpr(pattern, chunk, perl = TRUE)
+    if (m == -1) break
+    match_len <- attr(m, "match.length")
+    m <- m + idx - 1
+    matched <- substr(doc, m, m + match_len - 1)
+    path <- gsub(pattern, "\\1", matched)
+    if (!is_abs_path(path)) {
+      resolved <- normalize_path(file.path(input_dir, path))
+      new_matched <- sub(paste0("{", path, "}"), paste0("{", resolved, "}"), matched, fixed = TRUE)
+      doc <- paste0(substr(doc, 1, m - 1), new_matched, substr(doc, m + match_len, nchar(doc)))
+      idx <- m + nchar(new_matched)
+    } else {
+      idx <- m + match_len
     }
   }
   doc

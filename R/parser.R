@@ -5,7 +5,7 @@ dep_list <- new_defaults()
 .knitEnv$terminate <- NULL
 .knitEnv$input.dir <- NULL
 
-split_file <- function(lines, set.preamble = TRUE, patterns = knit_patterns$get()) {
+split_file <- function(lines, patterns = knit_patterns$get()) {
   chunk.begin <- patterns$chunk.begin
   chunk.end <- patterns$chunk.end
   if (is.null(chunk.begin) || is.null(chunk.end)) {
@@ -25,7 +25,7 @@ split_file <- function(lines, set.preamble = TRUE, patterns = knit_patterns$get(
       } else {
         ""
       }
-      parse_block(g[-1], g[1], params.src, markdown_mode = FALSE)
+      parse_block(g[-1], params.src, markdown_mode = FALSE)
     } else {
       parse_inline(g, patterns)
     }
@@ -74,7 +74,7 @@ strip_block <- function(x, prefix = NULL) {
   x
 }
 
-parse_block <- function(code, header, params.src, markdown_mode = FALSE) {
+parse_block <- function(code, params.src, markdown_mode = FALSE) {
   params <- params.src
   if (!markdown_mode) {
     params <- gsub("^\\s*,*\\s*|\\s*,*\\s*$", "", params)
@@ -156,10 +156,6 @@ plot_counter <- local({
     n - 1L
   }
 })
-
-all_labels <- function() {
-  .knitEnv$labels
-}
 
 str_locate <- function(x, pattern, all = TRUE) {
   out <- (if (all) gregexpr else regexpr)(pattern, x, perl = TRUE)
