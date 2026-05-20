@@ -27,5 +27,6 @@ Collate:
     'header.R'
     'engine.R'
     'knit.R'
+    'tangle.R'
     'zzz.R'
 Encoding: UTF-8

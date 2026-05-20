@@ -426,7 +426,8 @@ knit_child <- function(child) {
 
   output <- character(length(groups))
   for (i in seq_along(groups)) {
-    output[i] <- process_group(groups[[i]])
+    output[i] <- if (isTRUE(opts_knit$get("tangle")))
+      process_tangle(groups[[i]]) else process_group(groups[[i]])
   }
   one_string(output)
 }

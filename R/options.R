@@ -59,6 +59,7 @@ opts_chunk <- new_defaults(list(
   warning = TRUE, error = TRUE, message = TRUE,
   render = NULL,
   ref.label = NULL, child = NULL, engine = "R", split = FALSE, include = TRUE,
+  tangle = TRUE,
   minted = FALSE, minted_style = NULL,
   external = TRUE
 ))
@@ -72,7 +73,7 @@ opts_knit <- new_defaults(list(
   aliases = NULL, resolve_input = TRUE,
   header = c(highlight = "", framed = ""),
   minted_style = NULL, engine = "pdflatex",
-  normalize_paths = TRUE
+  normalize_paths = TRUE, tangle = FALSE
 ))
 
 merge_list <- function(x, y) {
