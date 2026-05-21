@@ -25,6 +25,9 @@ jobs:
         with:
           extra-packages: any::covr, any::testthat, any::devtools
           needs: coverage
+      - uses: r-lib/actions/setup-tinytex@v2
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       - name: Run tests
         run: Rscript -e 'devtools::test()'
       - name: Upload coverage
