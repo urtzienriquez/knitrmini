@@ -1,5 +1,8 @@
 # knitrmini
 
+[![CI](https://github.com/urtzienriquez/knitrmini/actions/workflows/CI.yml/badge.svg)](https://github.com/urtzienriquez/knitrmini/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/github/urtzienriquez/knitrmini/graph/badge.svg?token=B5L9VSWW7D)](https://codecov.io/github/urtzienriquez/knitrmini)
+
 > Minimal knitr for Rnw → TeX → PDF conversion
 
 ## Overview
