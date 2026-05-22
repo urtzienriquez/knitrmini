@@ -129,6 +129,14 @@ new_cache <- function() {
 
 cache <- new_cache()
 
+#' Compute a digest hash
+#'
+#' Compute an MD5 (or SHA1 if \pkg{digest} is not available) hash of an R object.
+#' Used to generate cache keys.
+#'
+#' @param x Any R object to hash.
+#' @return A character string of the hash.
+#' @keywords internal
 digest <- function(x) {
   if (requireNamespace("digest", quietly = TRUE)) {
     digest::digest(x)
@@ -160,6 +168,14 @@ cache_content <- function(params) {
   content
 }
 
+#' Generate a cache name
+#'
+#' Generate a unique cache identifier from chunk parameters (label + hash of
+#' code and options).
+#'
+#' @param params A list of chunk options (must include \code{label}, \code{cache.path}, and \code{code}).
+#' @return A cache filename string.
+#' @keywords internal
 cache_name <- function(params) {
   paste0(valid_path(params$cache.path, params$label), "_", digest(cache_content(params)))
 }
@@ -240,6 +256,13 @@ purge_cache <- function(options) {
   }
 }
 
+#' Find symbols in an expression
+#'
+#' Recursively extract all symbol names from a parsed R expression.
+#'
+#' @param expr An R expression (character, expression, call, or symbol).
+#' @return Character vector of symbol names.
+#' @keywords internal
 find_symbols <- function(expr) {
   if (!is.character(expr) && !is.expression(expr) && !is.call(expr) && !is.symbol(expr)) {
     return(character())
@@ -318,6 +341,13 @@ all_labels_internal <- function() {
   .knitEnv$labels %n% character()
 }
 
+#' Get the knit evaluation environment
+#'
+#' Returns the environment in which code chunks are evaluated. Set by [knit()]
+#' via `knit_global_set()`.
+#'
+#' @return An environment object.
+#' @keywords internal
 knit_global <- function() {
   if (exists(".knitGlobal", envir = .knitEnv)) {
     get(".knitGlobal", envir = .knitEnv)

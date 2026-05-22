@@ -1,3 +1,10 @@
+#' Set LaTeX header content
+#'
+#' Add LaTeX code to the document preamble. Merges the provided values with
+#' existing header entries stored in \code{opts_knit$get("header")}.
+#'
+#' @param ... Named arguments of LaTeX code to add to the header.
+#' @export
 set_header <- function(...) {
   opts_knit$set(header = merge_list(opts_knit$get("header"), c(...)))
 }
@@ -29,6 +36,14 @@ set_header <- function(...) {
 \\makeatother
 "
 
+#' Insert preamble into document
+#'
+#' Insert the generated LaTeX preamble (packages, color definitions, environments)
+#' before `\\begin{document}` in the output.
+#'
+#' @param doc LaTeX document string.
+#' @return Document string with preamble inserted.
+#' @keywords internal
 insert_header <- function(doc) {
   if (!out_format(c("latex", "sweave"))) {
     return(doc)
@@ -63,6 +78,15 @@ make_header_latex <- function(doc) {
   one_string(build_preamble(doc))
 }
 
+#' Build LaTeX preamble
+#'
+#' Generate the LaTeX preamble (packages, color definitions, environments) needed
+#' for the knitted output. Only includes items that are not already defined in
+#' the document.
+#'
+#' @param doc LaTeX document string.
+#' @return A character vector of LaTeX preamble lines.
+#' @keywords internal
 build_preamble <- function(doc) {
   needed <- character()
 
@@ -171,26 +195,48 @@ build_preamble <- function(doc) {
   needed
 }
 
+#' Check if LaTeX package is loaded
+#'
+#' @param doc LaTeX document string.
+#' @param pkg Package name to check.
+#' @return \code{TRUE} if the package is loaded in the document preamble.
+#' @keywords internal
 has_package <- function(doc, pkg) {
   grepl(sprintf("\\\\usepackage(\\[.*?\\])?\\{%s\\}", pkg), strip_latex_comments(doc), perl = TRUE)
 }
 
+#' Check if LaTeX command is defined
+#' @keywords internal
 has_newcommand <- function(doc, cmd) {
   grepl(sprintf("\\\\newcommand(\\*)?\\{%s\\}", cmd), strip_latex_comments(doc), perl = TRUE)
 }
 
+#' Check if LaTeX environment is defined
+#' @keywords internal
 has_newenvironment <- function(doc, env) {
   grepl(sprintf("\\\\newenvironment\\{%s\\}", env), strip_latex_comments(doc), perl = TRUE)
 }
 
+#' Check if LaTeX color is defined
+#' @keywords internal
 has_definecolor <- function(doc, color) {
   grepl(sprintf("\\\\definecolor\\{%s\\}", color), strip_latex_comments(doc), perl = TRUE)
 }
 
+#' Check if Verbatim environment is defined
+#' @keywords internal
 has_defineverbatimenvironment <- function(doc, env) {
   grepl(sprintf("\\\\DefineVerbatimEnvironment\\{%s\\}", env), strip_latex_comments(doc), perl = TRUE)
 }
 
+#' Strip LaTeX comments
+#'
+#' Remove LaTeX comment lines (starting with \code{%}) from a document,
+#' respecting escaped percent signs.
+#'
+#' @param doc LaTeX document string.
+#' @return Document string with comments removed.
+#' @keywords internal
 strip_latex_comments <- function(doc) {
   lines <- split_lines(doc)
   for (i in seq_along(lines)) {

@@ -1,3 +1,30 @@
+#' Knit a document
+#'
+#' The main entry point for knitrmini. Process an \code{.Rnw} file (or character
+#' vector of text), executing R code chunks and producing a \code{.tex} file.
+#' If \code{compile = TRUE}, the \code{.tex} file is compiled to PDF automatically.
+#'
+#' @param input Path to the input \code{.Rnw} file, or a character vector of text
+#'   (when \code{text} is provided).
+#' @param output Path for the output \code{.tex} file. Auto-guessed from input if \code{NULL}.
+#' @param text Character vector of document text (used when \code{input} is missing).
+#' @param quiet Suppress progress messages.
+#' @param envir Environment in which to evaluate code chunks (default: parent frame).
+#' @param compile Whether to compile the resulting \code{.tex} to PDF.
+#' @param engine LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
+#' @param minted_style Pygments style name for minted highlighting (e.g. \code{"tango"}).
+#' @param clean Remove auxiliary files (except \code{.tex} and \code{.pdf}) after compilation.
+#' @return Invisibly returns the path to the output \code{.tex} or \code{.pdf} file.
+#' @export
+#'
+#' @examples
+#' library(knitrmini)
+#' f <- system.file("examples", "knitrmini-minimal.Rnw", package = "knitrmini")
+#' knit(f, compile = FALSE)
+#'
+#' tangle(f)
+#'
+#' unlink(c("knitrmini-minimal.tex", "knitrmini-minimal.R"), recursive = TRUE)
 knit <- function(
   input, output = NULL, text = NULL, quiet = FALSE,
   envir = parent.frame(),
@@ -147,6 +174,18 @@ guess_output <- function(input) {
   }
 }
 
+#' Compile a TeX file to PDF
+#'
+#' Run a LaTeX engine on a \code{.tex} file to produce a PDF. Automatically
+#' detects and runs bibliography tools (bibtex/biber) and determines the
+#' required number of compilation passes.
+#'
+#' @param tex_file Path to the \code{.tex} file.
+#' @param engine LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
+#' @param bib_engine Bibliography engine (\code{"bibtex"}, \code{"biber"}, or \code{NULL} for auto-detect).
+#' @param quiet Suppress progress messages.
+#' @return Invisibly returns the path to the generated \code{.pdf} file.
+#' @keywords internal
 compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet = FALSE) {
   tex_file <- normalizePath(tex_file, mustWork = TRUE)
   work_dir <- dirname(tex_file)
@@ -248,6 +287,13 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
   }
 }
 
+#' Determine compilation passes
+#'
+#' Determine how many LaTeX compilation passes are needed based on document content.
+#'
+#' @param tex_content LaTeX document as a single string.
+#' @return A list with \code{latex} (number of passes) and \code{bib} (logical).
+#' @keywords internal
 determine_passes <- function(tex_content) {
   has_ref <- grepl("\\\\ref\\{", tex_content, perl = TRUE) ||
     grepl("\\\\pageref\\{", tex_content, perl = TRUE)
@@ -263,6 +309,13 @@ determine_passes <- function(tex_content) {
   list(latex = latex, bib = has_cite)
 }
 
+#' Detect bibliography engine
+#'
+#' Detect which bibliography engine is needed based on LaTeX document content.
+#'
+#' @param tex_content LaTeX document as a single string.
+#' @return \code{"biber"}, \code{"bibtex"}, or \code{NULL}.
+#' @keywords internal
 detect_bib_engine <- function(tex_content) {
   if (grepl("\\\\addbibresource\\{", tex_content)) {
     return("biber")
@@ -278,6 +331,13 @@ up_to_date <- function(source_file, target_file) {
   file.mtime(target_file) > file.mtime(source_file)
 }
 
+#' Check color definition in preamble
+#'
+#' Validate that `\\definecolor{...}` in the document preamble is preceded by
+#' `\\usepackage{xcolor}`. Raises an error if xcolor is missing.
+#'
+#' @param clean_preamble Document preamble with LaTeX comments stripped.
+#' @keywords internal
 check_color_definition <- function(clean_preamble) {
   if (grepl("\\\\definecolor\\{", clean_preamble) &&
     !grepl("\\\\usepackage(\\[.*?\\])?\\{xcolor\\}", clean_preamble)) {
@@ -288,6 +348,15 @@ check_color_definition <- function(clean_preamble) {
   }
 }
 
+#' Parse LaTeX log file
+#'
+#' Parse a LaTeX \code{.log} file and extract errors, warnings, bad boxes,
+#' undefined references, and undefined citations.
+#'
+#' @param log_path Path to the \code{.log} file.
+#' @return A list with components \code{errors}, \code{warnings}, \code{badboxes},
+#'   \code{undefined_refs}, and \code{undefined_citations}.
+#' @keywords internal
 parse_latex_log <- function(log_path) {
   empty <- list(
     errors = character(), warnings = character(),
@@ -377,6 +446,14 @@ parse_latex_log <- function(log_path) {
   )
 }
 
+#' Print LaTeX log summary
+#'
+#' Print a formatted summary of issues found in a LaTeX compilation log.
+#'
+#' @param summary A list from [parse_latex_log()].
+#' @param label Label prefix for the output.
+#' @param max_per Maximum number of items to show per category.
+#' @keywords internal
 print_log_summary <- function(summary, label = "", max_per = 5) {
   any_issues <- length(summary$errors) > 0 || length(summary$warnings) > 0 ||
     length(summary$badboxes) > 0 || length(summary$undefined_refs) > 0 ||
@@ -445,6 +522,20 @@ shorten_error <- function(e) {
   first
 }
 
+#' Knit and compile to PDF
+#'
+#' Convenience function that runs [knit()] followed by [compile_pdf()]. Skips
+#' both steps if the output is already up to date.
+#'
+#' @param input Path to the input \code{.Rnw} file.
+#' @param output Path for the output \code{.tex} file (auto-guessed if \code{NULL}).
+#' @param compiler LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
+#' @param quiet Suppress progress messages.
+#' @param clean Remove auxiliary files after compilation.
+#' @param envir Environment for code evaluation.
+#' @param ... Additional arguments passed to [knit()].
+#' @return Invisibly returns the path to the generated \code{.pdf} file.
+#' @export
 knit2pdf <- function(
   input, output = NULL, compiler = NULL, quiet = FALSE,
   clean = FALSE, envir = parent.frame(), ...
@@ -477,6 +568,15 @@ is_abs_path <- function(x) {
   grepl("^(/|[A-Za-z]:)", x)
 }
 
+#' Resolve LaTeX input/include commands
+#'
+#' Recursively replace `\\input{...}` and `\\include{...}` commands with the
+#' content of the referenced files (up to a depth of 10). Only `.tex` files
+#' are inlined; `.Rnw` files are left as-is.
+#'
+#' @param doc LaTeX document string.
+#' @return Document string with inputs resolved.
+#' @keywords internal
 resolve_inputs <- function(doc) {
   doc <- one_string(doc)
   max_depth <- 10
@@ -522,6 +622,15 @@ normalize_path <- function(path) {
   )
 }
 
+#' Resolve includegraphics paths
+#'
+#' Resolve relative paths in `\\includegraphics` commands to absolute paths
+#' rooted at `input_dir`.
+#'
+#' @param doc LaTeX document string.
+#' @param input_dir The directory of the input file.
+#' @return Document string with paths resolved.
+#' @keywords internal
 resolve_includegraphics <- function(doc, input_dir) {
   doc <- one_string(doc)
   pattern <- paste0(

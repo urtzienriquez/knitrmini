@@ -1,3 +1,11 @@
+#' Knit code store
+#'
+#' A list-like object (created by [new_defaults()]) that stores the code for each
+#' chunk by label. Populated during parsing and consumed during execution.
+#'
+#' @format A list with methods: \code{get}, \code{set}, \code{delete}, \code{append},
+#'   \code{merge}, and \code{restore}.
+#' @export
 knit_code <- new_defaults()
 dep_list <- new_defaults()
 .knitEnv <- new.env(parent = emptyenv())
@@ -5,6 +13,15 @@ dep_list <- new_defaults()
 .knitEnv$terminate <- NULL
 .knitEnv$input.dir <- NULL
 
+#' Split document into groups
+#'
+#' Split document lines into code chunks and prose blocks using the active
+#' pattern definitions.
+#'
+#' @param lines Character vector of document lines.
+#' @param patterns Pattern list (from [knit_patterns]).
+#' @return A list of parsed groups (each either a \code{block} or \code{inline} object).
+#' @keywords internal
 split_file <- function(lines, patterns = knit_patterns$get()) {
   chunk.begin <- patterns$chunk.begin
   chunk.end <- patterns$chunk.end
@@ -74,6 +91,16 @@ strip_block <- function(x, prefix = NULL) {
   x
 }
 
+#' Parse a code block
+#'
+#' Parse a single code chunk: extract parameters from the header, register
+#' the chunk label, and store the code for later execution.
+#'
+#' @param code Character vector of code lines.
+#' @param params.src Raw chunk header string.
+#' @param markdown_mode Logical; whether the source is R Markdown (not Rnw).
+#' @return A \code{block} object (list with \code{params} and \code{params.src}).
+#' @keywords internal
 parse_block <- function(code, params.src, markdown_mode = FALSE) {
   params <- params.src
   if (!markdown_mode) {
@@ -101,6 +128,14 @@ parse_block <- function(code, params.src, markdown_mode = FALSE) {
   ))
 }
 
+#' Parse inline expressions
+#'
+#' Extract inline code expressions (e.g. `\\Sexpr{...}`) from a block of text.
+#'
+#' @param input Character vector of text lines.
+#' @param patterns Pattern list (from [knit_patterns]).
+#' @return An \code{inline} object with fields \code{input}, \code{location}, and \code{code}.
+#' @keywords internal
 parse_inline <- function(input, patterns) {
   inline.code <- patterns$inline.code
   inline.comment <- patterns$inline.comment
@@ -130,11 +165,24 @@ parse_inline <- function(input, patterns) {
   ), class = "inline")
 }
 
+#' Generate unnamed chunk label
+#'
+#' @param prefix Label prefix (default from \code{opts_knit$get("unnamed.chunk.label")}).
+#' @return A unique chunk label string.
+#' @keywords internal
 unnamed_chunk <- function(prefix = NULL) {
   if (is.null(prefix)) prefix <- opts_knit$get("unnamed.chunk.label")
   paste(prefix, chunk_counter(), sep = "-")
 }
 
+#' Chunk counter
+#'
+#' A closure that tracks the number of chunks processed. Resets on each
+#' top-level \code{knit()} call.
+#'
+#' @param reset If \code{TRUE}, reset the counter to 0.
+#' @return The current chunk number (incremented after each call).
+#' @keywords internal
 chunk_counter <- local({
   n <- 0L
   function(reset = FALSE) {

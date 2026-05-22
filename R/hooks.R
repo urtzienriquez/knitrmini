@@ -91,14 +91,54 @@ hooks_latex <- function() {
   document = identity
 )
 
+#' Knit output hooks
+#'
+#' A list-like object (created by [new_defaults()]) that stores output hook functions.
+#' Hooks control how different types of output (source code, text output, warnings,
+#' messages, errors, plots, inline results) are rendered in the final document.
+#'
+#' @format A list with methods: \code{get}, \code{set}, \code{delete}, \code{append},
+#'   \code{merge}, and \code{restore}. Default hooks include:
+#' \describe{
+#'   \item{source}{Format source code display}
+#'   \item{output}{Format text output}
+#'   \item{warning}{Format warnings}
+#'   \item{message}{Format messages}
+#'   \item{error}{Format errors}
+#'   \item{plot}{Format plots}
+#'   \item{inline}{Format inline results}
+#'   \item{chunk}{Wrap entire chunk output}
+#'   \item{evaluate}{Function used to evaluate code}
+#'   \item{evaluate.inline}{Function used to evaluate inline expressions}
+#' }
+#' @export
+#' @seealso \code{\link{render_latex}} to install LaTeX-specific hooks
 knit_hooks <- new_defaults(.default.hooks)
 
+#' Set up LaTeX output hooks
+#'
+#' Configure chunk options and output hooks for LaTeX rendering. Sets the output
+#' format to \code{"latex"}, configures default figure device and width, and
+#' installs the LaTeX-specific hook functions (source highlighting, figure
+#' rendering, verbatim output, etc.).
+#'
+#' @export
 render_latex <- function() {
   opts_chunk$set(out.width = "\\maxwidth", dev = "pdf")
   opts_knit$set(out.format = "latex")
   knit_hooks$set(hooks_latex())
 }
 
+#' Render figures to LaTeX
+#'
+#' Generate LaTeX code to include figure files with the given chunk options.
+#' Supports captions, labels, figure environments, alignment, and custom
+#' width/height attributes.
+#'
+#' @param figures Character vector of figure file paths.
+#' @param options A list of chunk options (fig.cap, out.width, fig.env, etc.).
+#' @return A character string of LaTeX code.
+#' @keywords internal
 render_figures <- function(figures, options) {
   caption <- options$fig.cap
   width <- options$out.width
@@ -187,6 +227,14 @@ output_asis <- function(x, options) {
   is_blank(x) || identical(options$results, "asis")
 }
 
+#' Escape LaTeX special characters
+#'
+#' Replace special characters (\code{\\}, \code{\{}, \code{\}}, \code{$}, \code{%},
+#' \code{&}, \code{#}, \code{_}, \code{^}, \code{~}) with their LaTeX-safe equivalents.
+#'
+#' @param s A character string to escape.
+#' @return The escaped string.
+#' @keywords internal
 escape_latex <- function(s) {
   s <- gsub("\\", "\aBS\a", s, fixed = TRUE)
   s <- gsub("{", "\\{", s, fixed = TRUE)

@@ -1,0 +1,10 @@
+\documentclass{article}
+\begin{document}
+
+<<setup>>=
+x <- rnorm(100)
+@
+
+The mean is \Sexpr{round(mean(x), 3)}.
+
+\end{document}

@@ -1,3 +1,12 @@
+#' Create a new defaults container
+#'
+#' Creates an object with `get`, `set`, `delete`, `append`, `merge`, and `restore`
+#' methods for managing a list of default values. Used internally by `opts_chunk`,
+#' `opts_knit`, `knit_hooks`, `knit_patterns`, and `knit_code`.
+#'
+#' @param value A named list of initial default values.
+#' @return A list of functions for manipulating the defaults.
+#' @keywords internal
 new_defaults <- function(value = list()) {
   defaults <- value
   get <- function(name, default = FALSE, drop = TRUE) {
@@ -42,6 +51,19 @@ new_defaults <- function(value = list()) {
   list(get = get, set = set, delete = delete, append = append, merge = merge, restore = restore)
 }
 
+#' Default chunk options
+#'
+#' A list-like object (created by [new_defaults()]) that stores default chunk options.
+#' Use `opts_chunk$set(...)` to change defaults and `opts_chunk$get()` to retrieve them.
+#'
+#' @format A list with methods: \code{get}, \code{set}, \code{delete}, \code{append},
+#'   \code{merge}, and \code{restore}.
+#' @export
+#' @seealso \code{\link{opts_knit}} for global options, \code{\link{knit_hooks}} for output hooks
+#'
+#' @examples
+#' opts_chunk$set(echo = FALSE, eval = TRUE)
+#' opts_chunk$get("echo")
 opts_chunk <- new_defaults(list(
   eval = TRUE, echo = TRUE, results = "markup",
   tidy = FALSE, tidy.opts = NULL,
@@ -64,6 +86,19 @@ opts_chunk <- new_defaults(list(
   external = TRUE
 ))
 
+#' Global knit options
+#'
+#' A list-like object (created by [new_defaults()]) that stores global knitrmini options.
+#' Use `opts_knit$set(...)` to change options and `opts_knit$get()` to retrieve them.
+#'
+#' @format A list with methods: \code{get}, \code{set}, \code{delete}, \code{append},
+#'   \code{merge}, and \code{restore}.
+#' @export
+#' @seealso \code{\link{opts_chunk}} for chunk defaults
+#'
+#' @examples
+#' opts_knit$set(engine = "xelatex", progress = FALSE)
+#' opts_knit$get("engine")
 opts_knit <- new_defaults(list(
   progress = TRUE, verbose = FALSE, global.device = FALSE, global.par = FALSE,
   eval.after = c("fig.cap"),
@@ -76,11 +111,27 @@ opts_knit <- new_defaults(list(
   normalize_paths = TRUE, tangle = FALSE
 ))
 
+#' Merge two named lists
+#'
+#' @param x Base list
+#' @param y List whose values override \code{x}
+#' @return A merged list.
+#' @keywords internal
 merge_list <- function(x, y) {
   x[names(y)] <- y
   x
 }
 
+#' Null-default operator
+#'
+#' Returns \code{y} if \code{x} is \code{NULL}, otherwise returns \code{x}.
+#' Inspired by the `\%||\%` operator from \pkg{knitr}.
+#'
+#' @param x Value to check
+#' @param y Fallback value
+#' @return \code{x} if non-NULL, else \code{y}.
+#' @keywords internal
+#' @name op-null-default
 `%n%` <- function(x, y) if (is.null(x)) y else x
 
 parse_only <- function(code) {

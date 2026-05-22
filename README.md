@@ -95,6 +95,31 @@ Set via `opts_knit$set(...)`:
 | `minted_style` | `NULL` | Default minted style |
 | `resolve_input` | `TRUE` | Inline `\input`/`\include` files |
 
+## Editor Support
+
+`.Rnw` (and `.rnoweb`) files use the **R NoWeb** format — a literate programming format where LaTeX prose is interleaved with R code chunks delimited by `<<...>>= ... @`. For syntax highlighting and proper editing support, use the [tree-sitter-rnoweb](https://github.com/urtzienriquez/tree-sitter-rnoweb) grammar.
+
+### Quick setup (Neovim)
+
+1. Register the filetype:
+   ```lua
+   vim.filetype.add({ extension = { Rnw = "rnoweb", rnoweb = "rnoweb" } })
+   ```
+
+2. Compile and register the parser:
+   ```bash
+   gcc -O2 -shared -I src src/parser.c src/scanner.c \
+     -o ~/.local/share/nvim/site/parser/rnoweb.so
+   ```
+
+3. Symlink the query files for highlighting and injections:
+   ```bash
+   ln -sf /path/to/tree-sitter-rnoweb/queries/highlights.scm ~/.config/nvim/queries/rnoweb/
+   ln -sf /path/to/tree-sitter-rnoweb/queries/injections.scm ~/.config/nvim/queries/rnoweb/
+   ```
+
+The tree-sitter-rnoweb repo also ships [`literateR-fmt`](https://github.com/urtzienriquez/tree-sitter-rnoweb#formatting), a formatter that formats R chunks with styler and LaTeX prose with latexindent.
+
 ## Dependencies
 
 - **evaluate** — parse and evaluate R code chunks

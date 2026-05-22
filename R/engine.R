@@ -409,6 +409,14 @@ inline_exec <- function(block, envir = knit_global(), hook = knit_hooks$get("inl
   }
 }
 
+#' Knit a child document
+#'
+#' Process a child \code{.Rnw} document and return its LaTeX output. Used when
+#' a chunk has the \code{child} option set.
+#'
+#' @param child Path to the child \code{.Rnw} file.
+#' @return Character string of LaTeX output from the child document.
+#' @export
 knit_child <- function(child) {
   child_path <- paste0(opts_knit$get("child.path"), child)
   if (!file.exists(child_path)) {
@@ -434,10 +442,26 @@ knit_child <- function(child) {
 
 child_mode <- function() isTRUE(opts_knit$get("child"))
 
+#' Evaluate expression in input directory
+#'
+#' Temporarily change the working directory to the input file's directory
+#' and evaluate an expression.
+#'
+#' @param expr Expression to evaluate.
+#' @return Result of the expression.
+#' @keywords internal
 in_input_dir <- function(expr) {
   in_dir(input_dir(), expr)
 }
 
+#' Get input directory
+#'
+#' Returns the directory containing the input file being knitted. Uses
+#' \code{opts_knit$get("root.dir")} if set, otherwise falls back to the input
+#' file's directory or the current working directory.
+#'
+#' @return A path string.
+#' @keywords internal
 input_dir <- function() {
   root <- opts_knit$get("root.dir")
   root %n% .knitEnv$input.dir %n% "."
@@ -449,6 +473,15 @@ in_dir <- function(dir, expr) {
   force(expr)
 }
 
+#' Evaluate a language object
+#'
+#' Evaluate an expression, call, or symbol in a given environment. Returns
+#' the object unchanged if evaluation fails.
+#'
+#' @param x An R language object (expression, call, or name).
+#' @param envir Environment in which to evaluate.
+#' @return Evaluated result or the original object on error.
+#' @keywords internal
 eval_lang <- function(x, envir = knit_global()) {
   if (is.expression(x) || is.call(x) || is.name(x)) {
     tryCatch(eval(x, envir = envir), error = function(e) x)
@@ -457,10 +490,12 @@ eval_lang <- function(x, envir = knit_global()) {
   }
 }
 
+#' @keywords internal
 knit_print <- function(x, ...) {
   UseMethod("knit_print")
 }
 
+#' @exportS3Method NULL
 knit_print.default <- function(x, inline = FALSE, ...) {
   if (inline) {
     x
@@ -473,6 +508,14 @@ knit_print.default <- function(x, inline = FALSE, ...) {
   }
 }
 
+#' Highlight R source code
+#'
+#' Apply syntax highlighting to R source code using the \pkg{highr} package.
+#'
+#' @param x Character vector of R code lines.
+#' @param format Output format (\code{"latex"} or other).
+#' @return Character vector of highlighted code.
+#' @keywords internal
 hilight_source <- function(x, format = "latex") {
   if (!requireNamespace("highr", quietly = TRUE)) {
     return(x)

@@ -16,8 +16,10 @@ Imports:
     methods
 Suggests:
     testthat (>= 3.0.0),
-    tinytex (>= 0.56)
+    tinytex (>= 0.56),
+    roxygen2
 License: GPL
+Roxygen: list(markdown = TRUE)
 Collate:
     'options.R'
     'pattern.R'
@@ -30,3 +32,4 @@ Collate:
     'tangle.R'
     'zzz.R'
 Encoding: UTF-8
+RoxygenNote: 7.3.3

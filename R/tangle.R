@@ -1,3 +1,26 @@
+#' Tangle an Rnw file
+#'
+#' Extract R source code from an \code{.Rnw} file, producing a standalone
+#' \code{.R} file. Code chunks are extracted in order, with optional
+#' documentation comments.
+#'
+#' @param input Path to the input \code{.Rnw} file, or a character vector of text.
+#' @param output Path for the output \code{.R} file (auto-guessed if \code{NULL}).
+#' @param documentation Level of documentation comments: \code{0} = none,
+#'   \code{1} = chunk labels only (default), \code{2} = full text.
+#' @param text Character vector of document text (used when \code{input} is missing).
+#' @param quiet Suppress progress messages.
+#' @return Invisibly returns the path to the output \code{.R} file.
+#' @export
+#'
+#' @examples
+#' library(knitrmini)
+#' f <- system.file("examples", "knitrmini-minimal.Rnw", package = "knitrmini")
+#' tangle(f)
+#' tangle(f, documentation = 0)
+#' tangle(f, documentation = 2)
+#'
+#' unlink("knitrmini-minimal.R")
 tangle <- function(input, output = NULL, documentation = 1L, text = NULL, quiet = FALSE) {
   in.file <- !missing(input) && is.character(input)
 
