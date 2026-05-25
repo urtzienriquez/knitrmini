@@ -136,7 +136,7 @@ merge_list <- function(x, y) {
 
 parse_only <- function(code) {
   if (length(code) > 1) code <- one_string(code)
-  parse(text = code)
+  parse(text = code, keep.source = FALSE)
 }
 
 one_string <- function(x, ...) {
