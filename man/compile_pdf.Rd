@@ -4,23 +4,36 @@
 \alias{compile_pdf}
 \title{Compile a TeX file to PDF}
 \usage{
-compile_pdf(tex_file, engine = "pdflatex", bib_engine = NULL, quiet = FALSE)
+compile_pdf(
+  tex_file,
+  engine = "pdflatex",
+  bib_engine = NULL,
+  quiet = FALSE,
+  pvc = FALSE
+)
 }
 \arguments{
 \item{tex_file}{Path to the \code{.tex} file.}
 
 \item{engine}{LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).}
 
-\item{bib_engine}{Bibliography engine (\code{"bibtex"}, \code{"biber"}, or \code{NULL} for auto-detect).}
+\item{bib_engine}{Deprecated and ignored. \code{latexmk} auto-detects the
+bibliography engine.}
 
 \item{quiet}{Suppress progress messages.}
+
+\item{pvc}{Enable continuous preview with \code{latexmk -pvc}. Watches the
+\code{.tex} file for changes and recompiles automatically. Blocks until
+interrupted (Ctrl+C). Only useful when you edit the \code{.tex} file
+directly; for \code{.Rnw} workflows use \code{pvc = TRUE} in \code{\link{knit}}.}
 }
 \value{
 Invisibly returns the path to the generated \code{.pdf} file.
 }
 \description{
-Run a LaTeX engine on a \code{.tex} file to produce a PDF. Automatically
-detects and runs bibliography tools (bibtex/biber) and determines the
-required number of compilation passes.
+Use \code{latexmk} to compile a \code{.tex} file to PDF. \code{latexmk}
+automatically determines the required number of compilation passes, runs
+bibliography tools (bibtex/biber) when needed, and tracks file dependencies
+for incremental rebuilds. Passes \code{-pvc} for continuous preview mode.
 }
 \keyword{internal}

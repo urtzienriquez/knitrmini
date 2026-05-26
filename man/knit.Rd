@@ -13,7 +13,8 @@ knit(
   compile = TRUE,
   engine = NULL,
   minted_style = NULL,
-  clean = FALSE
+  clean = FALSE,
+  pvc = FALSE
 )
 }
 \arguments{
@@ -35,6 +36,10 @@ knit(
 \item{minted_style}{Pygments style name for minted highlighting (e.g. \code{"tango"}).}
 
 \item{clean}{Remove auxiliary files (except \code{.tex} and \code{.pdf}) after compilation.}
+
+\item{pvc}{Enable continuous preview. Watches the source \code{.Rnw} file for
+changes, then re-knits and re-compiles automatically. Blocks until
+interrupted (Ctrl+C). Not recommended in non-interactive sessions.}
 }
 \value{
 Invisibly returns the path to the output \code{.tex} or \code{.pdf} file.

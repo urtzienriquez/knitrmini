@@ -11,6 +11,7 @@ knit2pdf(
   quiet = FALSE,
   clean = FALSE,
   envir = parent.frame(),
+  pvc = FALSE,
   ...
 )
 }
@@ -26,6 +27,10 @@ knit2pdf(
 \item{clean}{Remove auxiliary files after compilation.}
 
 \item{envir}{Environment for code evaluation.}
+
+\item{pvc}{Enable continuous preview. Watches the source \code{.Rnw} file for
+changes, then re-knits and re-compiles automatically. Blocks until
+interrupted (Ctrl+C).}
 
 \item{...}{Additional arguments passed to \code{\link[=knit]{knit()}}.}
 }

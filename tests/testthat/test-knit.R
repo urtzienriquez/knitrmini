@@ -123,13 +123,6 @@ test_that("clean_output removes root comments", {
   expect_false(grepl("!root", result))
 })
 
-test_that("detect_bib_engine detects biber and bibtex", {
-  expect_equal(knitrmini:::detect_bib_engine("\\addbibresource{file.bib}"), "biber")
-  expect_equal(knitrmini:::detect_bib_engine("\\bibliography{file}"), "bibtex")
-  expect_equal(knitrmini:::detect_bib_engine("\\bibliographystyle{plain}"), "bibtex")
-  expect_null(knitrmini:::detect_bib_engine("plain text"))
-})
-
 test_that("check_color_definition errors on definecolor without xcolor", {
   expect_error(knitrmini:::check_color_definition("\\definecolor{foo}{rgb}{1,0,0}"),
     "xcolor")

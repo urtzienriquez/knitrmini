@@ -14,6 +14,9 @@
 #' @param engine LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
 #' @param minted_style Pygments style name for minted highlighting (e.g. \code{"tango"}).
 #' @param clean Remove auxiliary files (except \code{.tex} and \code{.pdf}) after compilation.
+#' @param pvc Enable continuous preview. Watches the source \code{.Rnw} file for
+#'   changes, then re-knits and re-compiles automatically. Blocks until
+#'   interrupted (Ctrl+C). Not recommended in non-interactive sessions.
 #' @return Invisibly returns the path to the output \code{.tex} or \code{.pdf} file.
 #' @export
 #'
@@ -29,7 +32,7 @@ knit <- function(
   input, output = NULL, text = NULL, quiet = FALSE,
   envir = parent.frame(),
   compile = TRUE, engine = NULL,
-  minted_style = NULL, clean = FALSE
+  minted_style = NULL, clean = FALSE, pvc = FALSE
 ) {
   in.file <- !missing(input) && is.character(input)
 
@@ -147,16 +150,31 @@ knit <- function(
     }
 
     if (compile) {
-      pdf_path <- compile_pdf(out_path,
-        engine = engine %n% opts_knit$get("engine") %n% "pdflatex",
-        quiet = quiet
-      )
-      if (clean) {
-        aux_files <- Sys.glob(paste0(xfun::sans_ext(out_path), ".*"))
-        aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
-        unlink(aux_files)
+      eng <- engine %n% opts_knit$get("engine") %n% "pdflatex"
+      if (pvc) {
+        compile_pdf(out_path, engine = eng, quiet = quiet)
+        if (!quiet) cat("  Watching", basename(input), "for changes (Ctrl+C to stop)...\n")
+        last_mtime <- file.mtime(input)
+        while (TRUE) {
+          Sys.sleep(1)
+          cur_mtime <- file.mtime(input)
+          if (is.na(cur_mtime) || identical(cur_mtime, last_mtime)) next
+          last_mtime <- cur_mtime
+          if (!quiet) cat("\n  Change detected, re-knitting...\n")
+          knit(input = input, output = out_path, quiet = TRUE,
+               envir = envir, compile = FALSE, clean = FALSE)
+          compile_pdf(out_path, engine = eng, quiet = quiet)
+          if (!quiet) cat("  Watching for changes (Ctrl+C to stop)...\n")
+        }
+      } else {
+        pdf_path <- compile_pdf(out_path, engine = eng, quiet = quiet)
+        if (clean) {
+          aux_files <- Sys.glob(paste0(xfun::sans_ext(out_path), ".*"))
+          aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
+          unlink(aux_files)
+        }
+        invisible(pdf_path)
       }
-      invisible(pdf_path)
     } else {
       invisible(out_path)
     }
@@ -176,99 +194,62 @@ guess_output <- function(input) {
 
 #' Compile a TeX file to PDF
 #'
-#' Run a LaTeX engine on a \code{.tex} file to produce a PDF. Automatically
-#' detects and runs bibliography tools (bibtex/biber) and determines the
-#' required number of compilation passes.
+#' Use \code{latexmk} to compile a \code{.tex} file to PDF. \code{latexmk}
+#' automatically determines the required number of compilation passes, runs
+#' bibliography tools (bibtex/biber) when needed, and tracks file dependencies
+#' for incremental rebuilds. Passes \code{-pvc} for continuous preview mode.
 #'
 #' @param tex_file Path to the \code{.tex} file.
 #' @param engine LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
-#' @param bib_engine Bibliography engine (\code{"bibtex"}, \code{"biber"}, or \code{NULL} for auto-detect).
+#' @param bib_engine Deprecated and ignored. \code{latexmk} auto-detects the
+#'   bibliography engine.
 #' @param quiet Suppress progress messages.
+#' @param pvc Enable continuous preview with \code{latexmk -pvc}. Watches the
+#'   \code{.tex} file for changes and recompiles automatically. Blocks until
+#'   interrupted (Ctrl+C). Only useful when you edit the \code{.tex} file
+#'   directly; for \code{.Rnw} workflows use \code{pvc = TRUE} in \code{\link{knit}}.
 #' @return Invisibly returns the path to the generated \code{.pdf} file.
 #' @keywords internal
-compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet = FALSE) {
+compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL,
+                        quiet = FALSE, pvc = FALSE) {
   tex_file <- normalizePath(tex_file, mustWork = TRUE)
   work_dir <- dirname(tex_file)
   base_name <- xfun::sans_ext(basename(tex_file))
   pdf_file <- file.path(work_dir, paste0(base_name, ".pdf"))
 
-  tex_content <- one_string(xfun::read_utf8(tex_file))
-  if (is.null(bib_engine)) {
-    bib_engine <- detect_bib_engine(tex_content)
+  latexmk_engine <- switch(engine,
+    "pdflatex" = "-pdf",
+    "lualatex"  = "-lualatex",
+    "xelatex"   = "-xelatex",
+    "-pdf"
+  )
+
+  args <- c(
+    latexmk_engine,
+    "-interaction=nonstopmode",
+    "-shell-escape",
+    "-f",
+    "-synctex=1",
+    basename(tex_file)
+  )
+
+  if (pvc) {
+    args <- c(args, "-pvc")
   }
-
-  needs <- determine_passes(tex_content)
-  total_passes <- max(needs$latex, 1L)
-
-  if (file.exists(pdf_file) &&
-      file.mtime(pdf_file) > file.mtime(tex_file)) {
-    bib_cache <- paste0(tex_file, "_bibdigest")
-    aux_file <- paste0(base_name, ".aux")
-    aux_path <- file.path(work_dir, aux_file)
-    if (!is.null(bib_engine) && file.exists(aux_path)) {
-      current_digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
-      if (!is.null(current_digest) && file.exists(bib_cache)) {
-        prev_digest <- readLines(bib_cache, warn = FALSE)
-        if (length(prev_digest) && prev_digest == current_digest) {
-          if (!quiet) cat("  PDF is up to date.\n", sep = "")
-          return(invisible(pdf_file))
-        }
-      }
-    } else if (is.null(bib_engine)) {
-      if (!quiet) cat("  PDF is up to date.\n", sep = "")
-      return(invisible(pdf_file))
-    }
-  }
-
-  run_latex <- function(pass) {
-    if (!quiet) cat("  ", engine, " (pass ", pass, "/", total_passes, ")...\n", sep = "")
-    owd <- setwd(work_dir)
-    on.exit(setwd(owd), add = TRUE)
-    res <- system2(engine, c(
-      "-interaction=nonstopmode", "-shell-escape",
-      basename(tex_file)
-    ),
-    stdout = FALSE, stderr = FALSE
-    )
-    if (res != 0) warning(engine, " (pass ", pass, "/", total_passes, ") had non-zero exit")
-    invisible(res == 0)
-  }
-
-  run_bib <- function() {
-    if (is.null(bib_engine)) {
-      return(invisible(TRUE))
-    }
-    aux_file <- paste0(base_name, ".aux")
-    aux_path <- file.path(work_dir, aux_file)
-    bib_cache <- paste0(tex_file, "_bibdigest")
-    if (file.exists(aux_path) && file.exists(bib_cache)) {
-      prev_digest <- readLines(bib_cache, warn = FALSE)
-      current_digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
-      if (length(prev_digest) && !is.null(current_digest) &&
-          prev_digest == current_digest) {
-        if (!quiet) cat("  ", bib_engine, "... up to date.\n", sep = "")
-        return(invisible(TRUE))
-      }
-    }
-    if (!quiet) cat("  ", bib_engine, "...\n", sep = "")
-    cmd <- if (bib_engine == "bibtex") c(aux_file) else base_name
-    owd <- setwd(work_dir)
-    on.exit(setwd(owd), add = TRUE)
-    res <- system2(bib_engine, cmd, stdout = FALSE, stderr = FALSE)
-    if (res != 0) warning(bib_engine, " step failed, continuing without bibliography")
-    if (file.exists(aux_path)) {
-      digest <- tryCatch(tools::md5sum(aux_path), error = function(e) NULL)
-      if (!is.null(digest)) writeLines(digest, bib_cache)
-    }
-    invisible(res == 0)
-  }
-
-  if (needs$latex >= 1) run_latex(1)
-  if (!is.null(bib_engine)) run_bib()
-  if (needs$latex >= 2) run_latex(2)
-  if (needs$latex >= 3) run_latex(3)
 
   if (!quiet) {
+    cat("  latexmk (", engine, ")", if (pvc) " [preview mode]", "...\n", sep = "")
+  }
+
+  owd <- setwd(work_dir)
+  on.exit(setwd(owd), add = TRUE)
+
+  res <- system2("latexmk", args, stdout = FALSE, stderr = FALSE)
+  if (res != 0) {
+    warning("latexmk (", engine, ") had non-zero exit status")
+  }
+
+  if (!quiet && !pvc) {
     log_path <- file.path(work_dir, paste0(base_name, ".log"))
     summary <- parse_latex_log(log_path)
     if (length(summary$errors)) {
@@ -287,44 +268,7 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL, quiet 
   }
 }
 
-#' Determine compilation passes
-#'
-#' Determine how many LaTeX compilation passes are needed based on document content.
-#'
-#' @param tex_content LaTeX document as a single string.
-#' @return A list with \code{latex} (number of passes) and \code{bib} (logical).
-#' @keywords internal
-determine_passes <- function(tex_content) {
-  has_ref <- grepl("\\\\ref\\{", tex_content, perl = TRUE) ||
-    grepl("\\\\pageref\\{", tex_content, perl = TRUE)
-  has_cite <- grepl("\\cite", tex_content, fixed = TRUE) ||
-    grepl("\\nocite", tex_content, fixed = TRUE) ||
-    grepl("\\addbibresource", tex_content, fixed = TRUE)
-  has_toc <- grepl("\\\\tableofcontents", tex_content, fixed = TRUE)
 
-  latex <- 1L
-  if (has_ref || has_toc) latex <- 2L
-  if (has_cite) latex <- 3L
-
-  list(latex = latex, bib = has_cite)
-}
-
-#' Detect bibliography engine
-#'
-#' Detect which bibliography engine is needed based on LaTeX document content.
-#'
-#' @param tex_content LaTeX document as a single string.
-#' @return \code{"biber"}, \code{"bibtex"}, or \code{NULL}.
-#' @keywords internal
-detect_bib_engine <- function(tex_content) {
-  if (grepl("\\\\addbibresource\\{", tex_content)) {
-    return("biber")
-  }
-  if (grepl("\\\\bibliography\\{|\\\\bibliographystyle\\{", tex_content)) {
-    return("bibtex")
-  }
-  NULL
-}
 
 up_to_date <- function(source_file, target_file) {
   if (!file.exists(target_file)) return(FALSE)
@@ -533,12 +477,15 @@ shorten_error <- function(e) {
 #' @param quiet Suppress progress messages.
 #' @param clean Remove auxiliary files after compilation.
 #' @param envir Environment for code evaluation.
+#' @param pvc Enable continuous preview. Watches the source \code{.Rnw} file for
+#'   changes, then re-knits and re-compiles automatically. Blocks until
+#'   interrupted (Ctrl+C).
 #' @param ... Additional arguments passed to [knit()].
 #' @return Invisibly returns the path to the generated \code{.pdf} file.
 #' @export
 knit2pdf <- function(
   input, output = NULL, compiler = NULL, quiet = FALSE,
-  clean = FALSE, envir = parent.frame(), ...
+  clean = FALSE, envir = parent.frame(), pvc = FALSE, ...
 ) {
   compiler <- compiler %n% opts_knit$get("engine") %n% "pdflatex"
   out_path <- output %n% guess_output(input)
@@ -550,14 +497,33 @@ knit2pdf <- function(
   tex_file <- knit(input, output = output, quiet = quiet, envir = envir,
     compile = FALSE, engine = compiler, ...
   )
-  if (!quiet) cat("Compiling ", tex_file, " -> .pdf\n", sep = "")
-  pdf_path <- compile_pdf(tex_file, engine = compiler, quiet = quiet)
-  if (clean) {
-    aux_files <- Sys.glob(paste0(xfun::sans_ext(tex_file), ".*"))
-    aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
-    unlink(aux_files)
+  if (pvc) {
+    if (!quiet) cat("Compiling ", tex_file, " -> .pdf\n", sep = "")
+    compile_pdf(tex_file, engine = compiler, quiet = quiet)
+    if (!quiet) cat("  Watching", basename(input), "for changes (Ctrl+C to stop)...\n")
+    last_mtime <- file.mtime(input)
+    while (TRUE) {
+      Sys.sleep(1)
+      cur_mtime <- file.mtime(input)
+      if (is.na(cur_mtime) || identical(cur_mtime, last_mtime)) next
+      last_mtime <- cur_mtime
+      if (!quiet) cat("\n  Change detected, re-knitting...\n")
+      knit(input = input, output = tex_file, quiet = TRUE,
+           envir = envir, compile = FALSE, clean = FALSE)
+      if (!quiet) cat("  Re-compiling...\n")
+      compile_pdf(tex_file, engine = compiler, quiet = quiet)
+      if (!quiet) cat("  Watching for changes (Ctrl+C to stop)...\n")
+    }
+  } else {
+    if (!quiet) cat("Compiling ", tex_file, " -> .pdf\n", sep = "")
+    pdf_path <- compile_pdf(tex_file, engine = compiler, quiet = quiet)
+    if (clean) {
+      aux_files <- Sys.glob(paste0(xfun::sans_ext(tex_file), ".*"))
+      aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
+      unlink(aux_files)
+    }
+    invisible(pdf_path)
   }
-  invisible(pdf_path)
 }
 
 knit_global_set <- function(envir) {
