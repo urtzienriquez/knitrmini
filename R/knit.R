@@ -119,11 +119,11 @@ knit <- function(
   }
   out_text <- paste(split_lines(out_text), collapse = "\n")
 
-  out_text <- insert_header(out_text)
-
   if (opts_knit$get("resolve_input")) {
     out_text <- resolve_inputs(out_text)
   }
+
+  out_text <- insert_header(out_text)
 
   if (opts_knit$get("normalize_paths")) {
     out_text <- resolve_includegraphics(out_text, input_dir())
