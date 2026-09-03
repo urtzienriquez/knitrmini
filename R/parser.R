@@ -128,13 +128,132 @@ parse_block <- function(code, params.src, markdown_mode = FALSE) {
   ))
 }
 
+#' LaTeX verbatim patterns
+#'
+#' A registry of regular expressions matching LaTeX verbatim-like constructs
+#' whose content must not be treated as inline code. Each pattern is applied
+#' with \code{perl = TRUE}. Extend this vector to protect additional
+#' verbatim constructs (e.g. \code{\\lstinline}, \code{verbatim} environments).
+#' @keywords internal
+.verbatim_patterns <- c(
+  # \\verb{...}, \\verb*{...}
+  "\\\\verb\\*?\\{[^}]*\\}",
+  # \\verb<delim>...<delim>, \\verb*<delim>...<delim> (non-letter delimiter)
+  "\\\\verb\\*?([^A-Za-z]).*?\\1",
+  # \\mintinline{lang}{code} (brace form)
+  "\\\\mintinline\\{[^}]*\\}\\{[^}]*\\}",
+  # \\mintinline{lang}<delim>...<delim> (delimiter form, like \\verb)
+  "\\\\mintinline\\{[^}]*\\}([^A-Za-z]).*?\\1",
+  # \\begin{verbatim}...\\end{verbatim} and starred variants (multiline)
+  "(?s)\\\\begin\\{verbatim\\*?\\}.*?\\\\end\\{verbatim\\*?\\}",
+  # \\lstinline (delimiter and brace forms)
+  "\\\\lstinline([^A-Za-z]).*?\\1",
+  "\\\\lstinline(?:\\[[^]]*\\])?\\{[^}]*\\}",
+  "\\\\lstinline(?:\\[[^]]*\\]\\([^)]*\\)|\\([^)]*\\))",
+  # \\begin{lstlisting}...\\end{lstlisting} (multiline)
+  "(?s)\\\\begin\\{lstlisting\\}.*?\\\\end\\{lstlisting\\}"
+)
+
+#' Protect LaTeX verbatim constructs
+#'
+#' Temporarily replace inline code (e.g. \code{\\Sexpr}) that appears inside
+#' LaTeX verbatim-like constructs with sentinel placeholders, so that it is not
+#' evaluated. Sentinels map back to the original expressions and may be
+#' restored with [restore_verbatim()].
+#'
+#' @param input A single character string.
+#' @param inline.code Regular expression matching an inline code expression
+#'   (e.g. \code{\\\\Sexpr\\{([^}]+)\\}}).
+#' @return A list with \code{protected} (the masked text) and \code{original}
+#'   (a named character vector mapping placeholder to original expression).
+#' @keywords internal
+protect_verbatim <- function(input, inline.code) {
+  regions <- verbatim_regions(input)
+  if (nrow(regions) == 0) {
+    return(list(protected = input, original = character()))
+  }
+  m <- gregexpr(inline.code, input, perl = TRUE)[[1]]
+  if (length(m) == 1 && m[1] == -1) {
+    return(list(protected = input, original = character()))
+  }
+  len <- attr(m, "match.length")
+  mapping <- character()
+  out <- input
+  ord <- order(m, decreasing = TRUE)
+  for (j in ord) {
+    inside <- any(m[j] >= regions[, 1] & m[j] <= regions[, 2])
+    if (!inside) next
+    key <- paste0(intToUtf8(1), length(mapping) + 1)
+    expr <- substring(input, m[j], m[j] + len[j] - 1L)
+    mapping[key] <- expr
+    out <- paste0(
+      substr(out, 1, m[j] - 1L), key, substr(out, m[j] + len[j], nchar(out))
+    )
+  }
+  list(protected = out, original = mapping)
+}
+
+#' Locate verbatim regions
+#'
+#' Find the character positions of all LaTeX verbatim-like constructs matched
+#' by [.verbatim_patterns], merging any overlapping matches.
+#'
+#' @param input A single character string.
+#' @return A matrix with columns \code{start} and \code{end}.
+#' @keywords internal
+verbatim_regions <- function(input) {
+  all <- list()
+  for (pat in .verbatim_patterns) {
+    m <- gregexpr(pat, input, perl = TRUE)[[1]]
+    if (length(m) == 1 && m[1] == -1) next
+    len <- attr(m, "match.length")
+    all[[length(all) + 1L]] <- cbind(start = m, end = m + len - 1L)
+  }
+  if (length(all) == 0) {
+    return(cbind(start = numeric(0), end = numeric(0)))
+  }
+  out <- do.call(rbind, all)
+  if (nrow(out) == 1) return(out)
+  ord <- order(out[, 1])
+  out <- out[ord, , drop = FALSE]
+  merged <- out[1, , drop = FALSE]
+  for (i in 2:nrow(out)) {
+    cur <- merged[nrow(merged), ]
+    r <- out[i, ]
+    if (r[1] <= cur[2] + 1) {
+      merged[nrow(merged), 2] <- max(cur[2], r[2])
+    } else {
+      merged <- rbind(merged, r)
+    }
+  }
+  merged
+}
+
+#' Restore LaTeX verbatim constructs
+#'
+#' Replace sentinel placeholders created by [protect_verbatim()] with their
+#' original verbatim expressions.
+#'
+#' @param input A single character string.
+#' @param original A named character vector mapping placeholder to expression.
+#' @return The text with verbatim content restored.
+#' @keywords internal
+restore_verbatim <- function(input, original) {
+  if (length(original) == 0) return(input)
+  for (key in names(original)) {
+    input <- sub(key, original[[key]], input, fixed = TRUE)
+  }
+  input
+}
+
 #' Parse inline expressions
 #'
 #' Extract inline code expressions (e.g. `\\Sexpr{...}`) from a block of text.
 #'
 #' @param input Character vector of text lines.
 #' @param patterns Pattern list (from [knit_patterns]).
-#' @return An \code{inline} object with fields \code{input}, \code{location}, and \code{code}.
+#' @return An \code{inline} object with fields \code{input}, \code{location},
+#'   and \code{code}.
 #' @keywords internal
 parse_inline <- function(input, patterns) {
   inline.code <- patterns$inline.code
@@ -144,6 +263,8 @@ parse_inline <- function(input, patterns) {
     input[idx] <- gsub(inline.code, "\\1", input[idx])
   }
   input <- one_string(input)
+  verbatim <- protect_verbatim(input, inline.code)
+  input <- verbatim$protected
   loc <- cbind(start = numeric(0), end = numeric(0))
   if (group_pattern(inline.code)) loc <- str_locate(input, inline.code)[[1]]
   code2 <- character()
@@ -161,7 +282,8 @@ parse_inline <- function(input, patterns) {
     }
   }
   structure(list(
-    input = input, location = loc, code = code2
+    input = input, location = loc, code = code2,
+    verbatim = verbatim$original
   ), class = "inline")
 }
 

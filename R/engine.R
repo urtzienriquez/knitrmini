@@ -234,7 +234,10 @@ sew <- function(res, options, inline = FALSE) {
     } else if (evaluate::is.error(x)) {
       knit_hooks$get("error")(x$message, options)
     } else if (is.character(x)) {
-      knit_hooks$get("output")(x, options)
+      if (isTRUE(.kableEnv$active)) {
+        .kableEnv$active <- FALSE
+        x
+      } else knit_hooks$get("output")(x, options)
     } else {
       ""
     }
@@ -393,7 +396,7 @@ inline_exec <- function(block, envir = knit_global(), hook = knit_hooks$get("inl
   code <- block$code
   input <- block$input
   if ((n <- length(code)) == 0) {
-    return(input)
+    return(restore_verbatim(input, block$verbatim %n% character()))
   }
   loc <- block$location
 
@@ -402,11 +405,12 @@ inline_exec <- function(block, envir = knit_global(), hook = knit_hooks$get("inl
     res <- hook_eval(code[i], envir)
     if (length(res)) ans[i] <- paste(hook(res), collapse = "")
   }
-  if (nrow(loc) > 0) {
+  out <- if (nrow(loc) > 0) {
     str_replace(input, loc, ans)
   } else {
     input
   }
+  restore_verbatim(out, block$verbatim %n% character())
 }
 
 #' Knit a child document

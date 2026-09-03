@@ -208,6 +208,21 @@ test_that("inline_exec with no code returns input unchanged", {
   expect_equal(knitrmini:::inline_exec(block), "plain text")
 })
 
+test_that("inline_exec does not evaluate Sexpr inside verbatim constructs", {
+  env <- list2env(list(x = 42))
+  r <- knitrmini:::inline_exec(
+    knitrmini:::parse_inline('\\verb|\\Sexpr{x}| and \\Sexpr{x}', all_patterns$rnw),
+    envir = env
+  )
+  expect_equal(r, '\\verb|\\Sexpr{x}| and 42')
+
+  r2 <- knitrmini:::inline_exec(
+    knitrmini:::parse_inline('\\mintinline{r}{\\Sexpr{x}} plus \\Sexpr{x}', all_patterns$rnw),
+    envir = env
+  )
+  expect_equal(r2, '\\mintinline{r}{\\Sexpr{x}} plus 42')
+})
+
 test_that("hilight_source returns highlighted code", {
   result <- knitrmini:::hilight_source("1+1")
   expect_true(is.character(result))

@@ -72,6 +72,55 @@ test_that("parse_inline handles inline comments", {
   expect_s3_class(result, "inline")
 })
 
+test_that("protect_verbatim masks Sexpr inside verb", {
+  t <- 'a \\verb|\\Sexpr{x}| b \\Sexpr{z}'
+  p <- knitrmini:::protect_verbatim(t, all_patterns$rnw$inline.code)
+  expect_false(grepl("\\Sexpr{x}", p$protected, fixed = TRUE))
+  expect_true(grepl("\\Sexpr{z}", p$protected, fixed = TRUE))
+  expect_equal(unname(p$original), "\\Sexpr{x}")
+  expect_equal(knitrmini:::restore_verbatim(p$protected, p$original), t)
+})
+
+test_that("protect_verbatim masks Sexpr inside mintinline", {
+  t <- '\\mintinline{r}{\\Sexpr{x}} and \\Sexpr{z}'
+  p <- knitrmini:::protect_verbatim(t, all_patterns$rnw$inline.code)
+  expect_false(grepl("\\Sexpr{x}", p$protected, fixed = TRUE))
+  expect_true(grepl("\\Sexpr{z}", p$protected, fixed = TRUE))
+  expect_equal(knitrmini:::restore_verbatim(p$protected, p$original), t)
+})
+
+test_that("protect_verbatim masks Sexpr inside verbatim environment", {
+  t <- 'before \\begin{verbatim}\\Sexpr{w}\\end{verbatim} after \\Sexpr{z}'
+  p <- knitrmini:::protect_verbatim(t, all_patterns$rnw$inline.code)
+  expect_false(grepl("\\Sexpr{w}", p$protected, fixed = TRUE))
+  expect_true(grepl("\\Sexpr{z}", p$protected, fixed = TRUE))
+  expect_equal(knitrmini:::restore_verbatim(p$protected, p$original), t)
+})
+
+test_that("protect_verbatim masks Sexpr inside lstinline and lstlisting", {
+  t <- '\\lstinline!\\Sexpr{q}! plus \\Sexpr{z}'
+  p <- knitrmini:::protect_verbatim(t, all_patterns$rnw$inline.code)
+  expect_false(grepl("\\Sexpr{q}", p$protected, fixed = TRUE))
+  expect_true(grepl("\\Sexpr{z}", p$protected, fixed = TRUE))
+
+  t2 <- '\\begin{lstlisting}\n\\Sexpr{x}\n\\end{lstlisting} then \\Sexpr{z}'
+  p2 <- knitrmini:::protect_verbatim(t2, all_patterns$rnw$inline.code)
+  expect_false(grepl("\\Sexpr{x}", p2$protected, fixed = TRUE))
+  expect_true(grepl("\\Sexpr{z}", p2$protected, fixed = TRUE))
+})
+
+test_that("protect_verbatim leaves plain text untouched", {
+  t <- "no verbatim here \\Sexpr{z}"
+  p <- knitrmini:::protect_verbatim(t, all_patterns$rnw$inline.code)
+  expect_equal(p$protected, t)
+  expect_equal(p$original, character())
+})
+
+test_that("parse_inline ignores Sexpr inside verbatim constructs", {
+  result <- knitrmini:::parse_inline('\\verb|\\Sexpr{x}| \\Sexpr{1+1}', all_patterns$rnw)
+  expect_equal(result$code, "1+1")
+})
+
 test_that("split_file returns mix of blocks and inline", {
   lines <- c("before", "<<a>>=", "1+1", "@", "after")
   groups <- knitrmini:::split_file(lines, patterns = all_patterns$rnw)

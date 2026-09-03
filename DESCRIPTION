@@ -30,6 +30,7 @@ Collate:
     'engine.R'
     'knit.R'
     'tangle.R'
+    'table.R'
     'zzz.R'
 Encoding: UTF-8
 RoxygenNote: 7.3.3
