@@ -12,7 +12,8 @@ parse_inline(input, patterns)
 \item{patterns}{Pattern list (from \link{knit_patterns}).}
 }
 \value{
-An \code{inline} object with fields \code{input}, \code{location}, and \code{code}.
+An \code{inline} object with fields \code{input}, \code{location},
+and \code{code}.
 }
 \description{
 Extract inline code expressions (e.g. \verb{\\\\Sexpr\{...\}}) from a block of text.

@@ -76,6 +76,7 @@ opts_chunk <- new_defaults(list(
   dev = NULL, dev.args = NULL, dpi = 72, fig.ext = NULL,
   fig.width = 7, fig.height = 7,
   fig.env = NULL, fig.cap = NULL, fig.lp = "fig:",
+  tab.cap = NULL,
   fig.pos = "", fig.align = "default", out.width = NULL, out.height = NULL,
   out.extra = NULL, interval = 1, aniopts = "controls,loop",
   warning = TRUE, error = TRUE, message = TRUE,
@@ -107,6 +108,7 @@ opts_knit <- new_defaults(list(
   out.format = NULL, child = FALSE, parent = FALSE,
   aliases = NULL, resolve_input = TRUE,
   header = c(highlight = "", framed = ""),
+  label.prefix = c(figure = "fig:", table = "tab:"),
   minted_style = NULL, engine = "pdflatex",
   normalize_paths = TRUE, tangle = FALSE
 ))
