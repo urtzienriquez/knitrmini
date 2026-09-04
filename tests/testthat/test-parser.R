@@ -166,3 +166,47 @@ test_that("str_replace replaces at given positions", {
   result <- knitrmini:::str_replace("hello world", loc, "there")
   expect_equal(result, "hello there")
 })
+
+test_that("parse_chunk replaces single reference", {
+  knit_code$set(list(orig = c("x <- 1", "y <- 2")))
+  on.exit(knit_code$delete("orig"))
+  code <- c("before", "<<orig>>", "after")
+  result <- knitrmini:::parse_chunk(code)
+  expect_equal(result, c("before", "x <- 1", "y <- 2", "after"))
+})
+
+test_that("parse_chunk replaces multiple references", {
+  knit_code$set(list(a = "1+1", b = "2+2"))
+  on.exit(knit_code$delete(c("a", "b")))
+  code <- c("<<a>>", "<<b>>")
+  result <- knitrmini:::parse_chunk(code)
+  expect_equal(result, c("1+1", "2+2"))
+})
+
+test_that("parse_chunk resolves nested references recursively", {
+  knit_code$set(list(inner = "z <- 99", outer = c("<<inner>>", "print(z)")))
+  on.exit(knit_code$delete(c("inner", "outer")))
+  code <- c("<<outer>>")
+  result <- knitrmini:::parse_chunk(code)
+  expect_equal(result, c("z <- 99", "print(z)"))
+})
+
+test_that("parse_chunk preserves indentation", {
+  knit_code$set(list(body = c("x <- 1", "y <- 2")))
+  on.exit(knit_code$delete("body"))
+  code <- c("  <<body>>")
+  result <- knitrmini:::parse_chunk(code)
+  expect_equal(result, c("  x <- 1", "  y <- 2"))
+})
+
+test_that("parse_chunk leaves missing labels as-is", {
+  knit_code$restore()
+  code <- c("<<nonexistent>>")
+  result <- knitrmini:::parse_chunk(code)
+  expect_equal(result, c("<<nonexistent>>"))
+})
+
+test_that("parse_chunk returns empty input unchanged", {
+  result <- knitrmini:::parse_chunk(character(0))
+  expect_equal(result, character(0))
+})

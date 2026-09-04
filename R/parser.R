@@ -246,6 +246,36 @@ restore_verbatim <- function(input, original) {
   input
 }
 
+#' Resolve chunk references in code
+#'
+#' Replace lines matching the \code{ref.chunk} pattern (e.g. \code{<<label>>})
+#' with the source code of the referenced chunk. References are resolved
+#' recursively and indentation is preserved.
+#'
+#' @param x Character vector of code lines.
+#' @param rc Regular expression matching chunk references (from \code{knit_patterns}).
+#' @return Character vector with references replaced by source code.
+#' @keywords internal
+parse_chunk <- function(x, rc = knit_patterns$get("ref.chunk")) {
+  if (length(x) == 0L) return(x)
+  x <- c(x)
+  if (!group_pattern(rc) || length(idx <- grep(rc, x)) == 0) return(x)
+
+  labels <- sub(rc, "\\1", x[idx])
+  code <- knit_code$get()
+  i <- labels %in% names(code)
+  idx <- idx[i]
+  code <- code[labels[i]]
+  indent <- gsub("^(\\s*).*", "\\1", x[idx])
+  code <- mapply(function(c, ind) {
+    if (nchar(ind) > 0) paste0(ind, c) else c
+  }, code, indent, SIMPLIFY = FALSE, USE.NAMES = FALSE)
+
+  x <- as.list(x)
+  x[idx] <- lapply(code, function(z) parse_chunk(z, rc))
+  unlist(x, use.names = FALSE)
+}
+
 #' Parse inline expressions
 #'
 #' Extract inline code expressions (e.g. `\\Sexpr{...}`) from a block of text.

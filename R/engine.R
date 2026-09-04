@@ -24,6 +24,10 @@ call_block <- function(block) {
   }
   params[["code"]] <- get_code(params, label, ref.label)
 
+  if (!isFALSE(params$ref.chunk)) {
+    params[["code"]] <- parse_chunk(params[["code"]])
+  }
+
   if (opts_knit$get("progress")) {
     cat("  |", label, "\n")
   }

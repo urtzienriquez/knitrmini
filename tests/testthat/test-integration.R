@@ -126,3 +126,17 @@ test_that("cache option produces cached output", {
   cache_files <- list.files(tempdir(), pattern = "cache", full.names = TRUE)
   expect_true(length(cache_files) > 0 || file.exists(sub("Rnw$", "tex", tf)))
 })
+
+test_that("chunk references via <<label>> inline syntax work", {
+  rnw <- make_rnw(
+    "<<setup>>=",
+    "x <- 42",
+    "@",
+    "<<use>>=",
+    "<<setup>>",
+    "x + 1",
+    "@"
+  )
+  tex_content <- knit_and_read(rnw)
+  expect_true(any(grepl("43", tex_content)))
+})

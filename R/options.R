@@ -81,7 +81,7 @@ opts_chunk <- new_defaults(list(
   out.extra = NULL, interval = 1, aniopts = "controls,loop",
   warning = TRUE, error = TRUE, message = TRUE,
   render = NULL,
-  ref.label = NULL, child = NULL, engine = "R", split = FALSE, include = TRUE,
+  ref.label = NULL, ref.chunk = TRUE, child = NULL, engine = "R", split = FALSE, include = TRUE,
   tangle = TRUE,
   minted = FALSE, minted_style = NULL,
   external = TRUE
