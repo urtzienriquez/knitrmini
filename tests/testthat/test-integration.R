@@ -129,14 +129,27 @@ test_that("cache option produces cached output", {
 
 test_that("chunk references via <<label>> inline syntax work", {
   rnw <- make_rnw(
-    "<<setup>>=",
-    "x <- 42",
+    "<<src>>=",
+    "msg <- 'hello_from_src'",
     "@",
     "<<use>>=",
-    "<<setup>>",
-    "x + 1",
+    "<<src>>",
+    "msg",
     "@"
   )
   tex_content <- knit_and_read(rnw)
-  expect_true(any(grepl("43", tex_content)))
+  expect_true(any(grepl("hello_from_src", tex_content)))
+})
+
+test_that("ref.label reuses source code from another chunk", {
+  rnw <- make_rnw(
+    "<<src>>=",
+    "val <- 'ref_label_works'",
+    "@",
+    "<<copy, ref.label='src'>>=
+    val",
+    "@"
+  )
+  tex_content <- knit_and_read(rnw)
+  expect_true(any(grepl("ref_label_works", tex_content)))
 })
