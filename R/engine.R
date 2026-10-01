@@ -41,7 +41,9 @@ call_block <- function(block) {
         "and this code chunk must be empty. Its code will be ignored."
       )
     }
+    .knitEnv$has_children <- TRUE
     if (!params$eval) {
+      .knitEnv$skipped_children <- c(.knitEnv$skipped_children, sc_split(params$child))
       return("")
     }
     cmds <- lapply(sc_split(params$child), knit_child)

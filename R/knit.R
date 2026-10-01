@@ -60,6 +60,9 @@ knit <- function(
     knit_code$restore()
     dep_list$restore()
     .knitEnv$labels <- character()
+    .knitEnv$has_children <- FALSE
+    .knitEnv$skipped_children <- character()
+    .knitEnv$snapshot <- NULL
     .knitEnv$terminate <- NULL
   }
 
@@ -133,7 +136,25 @@ knit <- function(
 
   if (in.file) {
     out_path <- output_file %n% guess_output(input)
+    # The label snapshot belongs to the input, so that partial builds written
+    # under any output name share the labels of the last full build
+    track_labels <- !child_mode() && isTRUE(.knitEnv$has_children) &&
+      isTRUE(opts_knit$get("resolve_external_refs"))
+    if (track_labels) {
+      snapshot <- list(
+        file = label_snapshot_path(input),
+        partial = length(.knitEnv$skipped_children) > 0
+      )
+      if (snapshot$partial) {
+        snapshot$labels <- read_snapshot_labels(input)
+        out_text <- resolve_external_refs(out_text, snapshot$labels)
+      }
+    }
     xfun::write_utf8(out_text, out_path)
+    if (track_labels) {
+      snapshot$tex <- normalizePath(out_path)
+      .knitEnv$snapshot <- snapshot
+    }
     if (!quiet) cat("Output: ", out_path, "\n", sep = "")
 
     if (!quiet && !child_mode()) {
@@ -257,6 +278,20 @@ compile_pdf <- function(tex_file, engine = "pdflatex", bib_engine = NULL,
     } else if (length(summary$warnings) || length(summary$badboxes) ||
       length(summary$undefined_refs) || length(summary$undefined_citations)) {
       print_log_summary(summary, "[Knit-warning]", 5)
+    }
+  }
+
+  # Only a successful full build writes the label snapshot; a partial build
+  # checks that its own labels are numbered as in the full build
+  snapshot <- .knitEnv$snapshot
+  if (!pvc && !is.null(snapshot) && identical(snapshot$tex, tex_file)) {
+    labels <- read_aux_labels(file.path(work_dir, paste0(base_name, ".aux")))
+    if (snapshot$partial) {
+      check_label_numbers(labels, snapshot$labels)
+    } else if (res == 0) {
+      write_label_snapshot(labels, snapshot$file)
+    } else {
+      warning("Label snapshot not updated because of LaTeX errors: ", snapshot$file)
     }
   }
 
@@ -564,6 +599,180 @@ resolve_inputs <- function(doc) {
     } else {
       break
     }
+  }
+  doc
+}
+
+label_snapshot_path <- function(input) {
+  paste0(xfun::sans_ext(input), "-labels.aux")
+}
+
+#' Extract balanced brace groups
+#'
+#' Return the contents of the first \code{n} consecutive \code{\{...\}} groups
+#' at the start of a string (leading whitespace is skipped).
+#'
+#' @param x A single string.
+#' @param n Maximum number of groups to extract.
+#' @return Character vector with the contents of the groups (without braces).
+#' @keywords internal
+brace_groups <- function(x, n = Inf) {
+  chars <- strsplit(x, "", fixed = TRUE)[[1]]
+  groups <- character()
+  depth <- 0
+  start <- 0
+  for (i in seq_along(chars)) {
+    ch <- chars[i]
+    if (i > 1 && chars[i - 1] == "\\") next # escaped \{ or \}
+    if (ch == "{") {
+      if (depth == 0) start <- i
+      depth <- depth + 1
+    } else if (ch == "}") {
+      depth <- depth - 1
+      if (depth == 0) {
+        groups <- c(groups, paste(chars[seq_len(i - start - 1) + start], collapse = ""))
+        if (length(groups) >= n) break
+      }
+    } else if (depth == 0 && !grepl("\\s", ch)) {
+      break
+    }
+  }
+  groups
+}
+
+#' Read labels from an .aux file
+#'
+#' @param file Path to a LaTeX \code{.aux} file.
+#' @return Named character vector: label name -> the raw \code{\\newlabel}
+#'   value (e.g. \code{"{S2.1}{3}{Caption}{figure.5}{}"}).
+#' @keywords internal
+read_aux_labels <- function(file) {
+  if (!file.exists(file)) return(character())
+  lines <- grep("^\\\\newlabel\\{", xfun::read_utf8(file), value = TRUE)
+  out <- character()
+  for (l in lines) {
+    g <- brace_groups(sub("^\\\\newlabel", "", l), 2)
+    if (length(g) == 2) out[g[1]] <- g[2]
+  }
+  out
+}
+
+#' Write the label snapshot of a document
+#'
+#' The snapshot (\code{<input>-labels.aux}, next to the input \code{.Rnw}) keeps
+#' the labels of the last full build, so that references to child documents
+#' skipped with \code{eval=FALSE} can be resolved, whatever the output name.
+#'
+#' @param labels Named character vector as returned by [read_aux_labels()].
+#' @param file Path to the snapshot.
+#' @keywords internal
+write_label_snapshot <- function(labels, file) {
+  if (length(labels)) {
+    xfun::write_utf8(paste0("\\newlabel{", names(labels), "}{", labels, "}"), file)
+  }
+}
+
+#' Read the labels of the last full build
+#'
+#' From the snapshot, or, if there is none yet (full build made before the
+#' snapshot existed), from \code{<input>.aux}.
+#'
+#' @param input Path to the input \code{.Rnw} file.
+#' @return Named character vector as returned by [read_aux_labels()].
+#' @keywords internal
+read_snapshot_labels <- function(input) {
+  snap <- label_snapshot_path(input)
+  if (file.exists(snap)) {
+    read_aux_labels(snap)
+  } else {
+    read_aux_labels(paste0(xfun::sans_ext(input), ".aux"))
+  }
+}
+
+#' Check label numbers of a partial build against the full build
+#'
+#' Warn when a label is numbered differently in a partial build than in the
+#' last full build: either the full build is out of date, or a counter (e.g.
+#' equations, footnotes) runs on from a skipped child into the compiled ones.
+#'
+#' @param labels Labels of the partial build.
+#' @param full Labels of the last full build.
+#' @keywords internal
+check_label_numbers <- function(labels, full) {
+  common <- intersect(names(labels), names(full))
+  common <- common[!grepl("^refsection:", common)] # biblatex internals
+  number <- function(x) vapply(x, function(v) c(brace_groups(v, 1), "")[1], "")
+  this <- number(labels[common])
+  before <- number(full[common])
+  differ <- common[this != before]
+  if (length(differ)) {
+    warning(
+      "Labels numbered differently than in the last full build ",
+      "(recompile the full document, or check counters that are not reset): ",
+      paste0(differ, " (", this[differ], " vs ", before[differ], ")", collapse = ", ")
+    )
+  }
+}
+
+#' Resolve references to labels outside the document
+#'
+#' Replace \code{\\ref}, \code{\\pageref} and \code{\\eqref} to labels that are
+#' not defined in the document (e.g. in a child skipped with \code{eval=FALSE})
+#' by their literal number, page, or \code{(number)}, taken from \code{labels}.
+#'
+#' @param doc LaTeX document string.
+#' @param labels Named character vector as returned by [read_aux_labels()].
+#' @return Document string with external references replaced.
+#' @keywords internal
+resolve_external_refs <- function(doc, labels) {
+  defined <- regmatches(doc, gregexpr("\\\\label\\{([^}]+)\\}", doc, perl = TRUE))[[1]]
+  defined <- sub("^\\\\label\\{(.*)\\}$", "\\1", defined)
+
+  pattern <- "(?<![A-Za-z@])\\\\(ref|pageref|eqref)\\*?\\{([^}]+)\\}"
+  m <- gregexpr(pattern, doc, perl = TRUE)[[1]]
+  unknown <- character()
+  if (m[1] != -1) {
+    starts <- as.integer(m)
+    lens <- attr(m, "match.length")
+    for (k in rev(seq_along(starts))) {
+      cmd <- substr(doc, starts[k], starts[k] + lens[k] - 1)
+      type <- sub(pattern, "\\1", cmd, perl = TRUE)
+      name <- sub(pattern, "\\2", cmd, perl = TRUE)
+      if (name %in% defined) next
+      if (!name %in% names(labels)) {
+        unknown <- c(unknown, name)
+        next
+      }
+      fields <- brace_groups(labels[[name]], 2)
+      value <- switch(type,
+        ref = fields[1],
+        pageref = fields[2],
+        eqref = paste0("(", fields[1], ")")
+      )
+      if (is.na(value)) next
+      doc <- paste0(
+        substr(doc, 1, starts[k] - 1), value,
+        substr(doc, starts[k] + lens[k], nchar(doc))
+      )
+    }
+  }
+
+  other <- regmatches(doc, gregexpr(
+    "\\\\(autoref|cref|Cref|nameref|vref)\\*?\\{[^}]+\\}", doc, perl = TRUE
+  ))[[1]]
+  other <- unlist(strsplit(sub("^[^{]*\\{(.*)\\}$", "\\1", other), "\\s*,\\s*"))
+  other <- unique(setdiff(intersect(other, names(labels)), defined))
+  if (length(other)) {
+    warning(
+      "Not resolved (only \\ref, \\pageref and \\eqref are): references to ",
+      "labels of skipped children: ", paste(other, collapse = ", ")
+    )
+  }
+  if (length(unknown)) {
+    warning(
+      "Labels not found in the document nor in the label snapshot ",
+      "(compile the full document once): ", paste(unique(rev(unknown)), collapse = ", ")
+    )
   }
   doc
 }

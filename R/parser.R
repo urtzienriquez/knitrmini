@@ -10,6 +10,8 @@ knit_code <- new_defaults()
 dep_list <- new_defaults()
 .knitEnv <- new.env(parent = emptyenv())
 .knitEnv$labels <- character()
+.knitEnv$has_children <- FALSE
+.knitEnv$skipped_children <- character()
 .knitEnv$terminate <- NULL
 .knitEnv$input.dir <- NULL
 

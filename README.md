@@ -94,6 +94,44 @@ Set via `opts_knit$set(...)`:
 | `unnamed.chunk.label` | `"unnamed-chunk"` | Prefix for unnamed chunks |
 | `minted_style` | `NULL` | Default minted style |
 | `resolve_input` | `TRUE` | Inline `\input`/`\include` files |
+| `resolve_external_refs` | `TRUE` | Write references to labels of skipped child documents as literal numbers (see below) |
+
+## Compiling parts of a document
+
+A document split into child files (e.g. a paper's main text and its supplementary
+appendices) can be compiled in parts by setting `eval=FALSE` on the child chunks you
+want to leave out:
+
+```
+<<child='main.Rnw'>>=
+@
+<<child='appendix1.Rnw', eval=FALSE>>=
+@
+```
+
+References to labels in skipped children still come out right: knitrmini writes
+them as **literal numbers** in the `.tex` (`Fig.~\ref{fig:s1}` becomes `Fig.~S1.1`).
+The numbers come from a label snapshot next to the input file, `<input>-labels.aux`,
+written by every successful full build (if there is none yet, `<input>.aux` is used).
+The snapshot belongs to the input, so partial builds can be written under any output
+name (`knit("index.Rnw", output = "main.tex")`). The result is a clean, standalone
+`.tex` with no `xr` package and no external `.aux` files, which is what journals
+usually ask for when the supplement is submitted as separate PDFs.
+
+Typical workflow:
+
+1. Compile the full document (all children evaluated).
+2. Skip the appendices and compile, e.g. to `main.tex`: the main text `.tex`/`.pdf`
+   for submission.
+3. Skip everything except one appendix and compile, e.g. to `appendix1.tex`: that
+   appendix's PDF.
+
+Partial builds never change the snapshot. Instead, knitrmini warns if a label in a
+partial build is numbered differently than in the full build. That happens when the
+full build is out of date (recompile it), or when a counter that isn't reset per part
+(e.g. equations) runs on from a skipped child. Only `\ref`, `\pageref` and `\eqref`
+are resolved; knitrmini warns about `\autoref`/`\cref` to skipped labels, and about
+labels it cannot find.
 
 ## Editor Support
 
