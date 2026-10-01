@@ -29,6 +29,7 @@ Collate:
     'header.R'
     'engine.R'
     'knit.R'
+    'clean.R'
     'tangle.R'
     'table.R'
     'zzz.R'

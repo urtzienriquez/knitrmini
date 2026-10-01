@@ -13,7 +13,8 @@
 #' @param compile Whether to compile the resulting \code{.tex} to PDF.
 #' @param engine LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
 #' @param minted_style Pygments style name for minted highlighting (e.g. \code{"tango"}).
-#' @param clean Remove auxiliary files (except \code{.tex} and \code{.pdf}) after compilation.
+#' @param clean Remove auxiliary files (except \code{.tex} and \code{.pdf}) after
+#'   compilation, with [clean_aux()].
 #' @param pvc Enable continuous preview. Watches the source \code{.Rnw} file for
 #'   changes, then re-knits and re-compiles automatically. Blocks until
 #'   interrupted (Ctrl+C). Not recommended in non-interactive sessions.
@@ -189,11 +190,7 @@ knit <- function(
         }
       } else {
         pdf_path <- compile_pdf(out_path, engine = eng, quiet = quiet)
-        if (clean) {
-          aux_files <- Sys.glob(paste0(xfun::sans_ext(out_path), ".*"))
-          aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
-          unlink(aux_files)
-        }
+        if (clean) clean_aux(out_path, quiet = quiet)
         invisible(pdf_path)
       }
     } else {
@@ -510,7 +507,7 @@ shorten_error <- function(e) {
 #' @param output Path for the output \code{.tex} file (auto-guessed if \code{NULL}).
 #' @param compiler LaTeX engine (\code{"pdflatex"}, \code{"xelatex"}, \code{"lualatex"}).
 #' @param quiet Suppress progress messages.
-#' @param clean Remove auxiliary files after compilation.
+#' @param clean Remove auxiliary files after compilation, with [clean_aux()].
 #' @param envir Environment for code evaluation.
 #' @param pvc Enable continuous preview. Watches the source \code{.Rnw} file for
 #'   changes, then re-knits and re-compiles automatically. Blocks until
@@ -552,11 +549,7 @@ knit2pdf <- function(
   } else {
     if (!quiet) cat("Compiling ", tex_file, " -> .pdf\n", sep = "")
     pdf_path <- compile_pdf(tex_file, engine = compiler, quiet = quiet)
-    if (clean) {
-      aux_files <- Sys.glob(paste0(xfun::sans_ext(tex_file), ".*"))
-      aux_files <- aux_files[!grepl("\\.(tex|pdf|Rnw)$", aux_files)]
-      unlink(aux_files)
-    }
+    if (clean) clean_aux(tex_file, quiet = quiet)
     invisible(pdf_path)
   }
 }

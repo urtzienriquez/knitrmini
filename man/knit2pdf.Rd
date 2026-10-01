@@ -24,7 +24,7 @@ knit2pdf(
 
 \item{quiet}{Suppress progress messages.}
 
-\item{clean}{Remove auxiliary files after compilation.}
+\item{clean}{Remove auxiliary files after compilation, with \code{\link[=clean_aux]{clean_aux()}}.}
 
 \item{envir}{Environment for code evaluation.}
 

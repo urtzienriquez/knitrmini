@@ -35,7 +35,8 @@ knit(
 
 \item{minted_style}{Pygments style name for minted highlighting (e.g. \code{"tango"}).}
 
-\item{clean}{Remove auxiliary files (except \code{.tex} and \code{.pdf}) after compilation.}
+\item{clean}{Remove auxiliary files (except \code{.tex} and \code{.pdf}) after
+compilation, with \code{\link[=clean_aux]{clean_aux()}}.}
 
 \item{pvc}{Enable continuous preview. Watches the source \code{.Rnw} file for
 changes, then re-knits and re-compiles automatically. Blocks until

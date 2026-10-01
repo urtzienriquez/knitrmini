@@ -2,6 +2,7 @@
 
 S3method(print,knitr_kable)
 export(all_patterns)
+export(clean_aux)
 export(kable)
 export(knit)
 export(knit2pdf)
