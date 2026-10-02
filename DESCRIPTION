@@ -1,6 +1,6 @@
 Package: knitrmini
 Type: Package
-Title: Minimal Knitr Engine for Rnw -> TeX -> PDF
+Title: Minimal Knitr Engine for Rnw to TeX to PDF conversion
 Version: 0.1.0
 Authors@R: c(
     person("Urtzi", "Enriquez-Urzelai", email = "uenriquez@proton.me",
