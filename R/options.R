@@ -111,7 +111,8 @@ opts_knit <- new_defaults(list(
   label.prefix = c(figure = "fig:", table = "tab:"),
   minted_style = NULL, engine = "pdflatex",
   normalize_paths = TRUE, tangle = FALSE,
-  resolve_external_refs = TRUE
+  resolve_external_refs = TRUE,
+  bib_packages = "packages.bib"
 ))
 
 #' Merge two named lists

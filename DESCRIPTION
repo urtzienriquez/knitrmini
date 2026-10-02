@@ -13,11 +13,13 @@ Imports:
     xfun (>= 0.52),
     digest,
     tools,
+    utils,
     methods
 Suggests:
     testthat (>= 3.0.0),
     tinytex (>= 0.56),
-    roxygen2
+    roxygen2,
+    renv
 License: GPL
 Roxygen: list(markdown = TRUE)
 Collate:
@@ -30,6 +32,7 @@ Collate:
     'engine.R'
     'knit.R'
     'clean.R'
+    'bib.R'
     'tangle.R'
     'table.R'
     'zzz.R'
