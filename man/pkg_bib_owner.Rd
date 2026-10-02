@@ -10,8 +10,10 @@ pkg_bib_owner(file)
 \item{file}{Path to the file.}
 }
 \value{
-\code{"absent"}, \code{"ours"} (empty, or written by knitrmini) or
-\code{"other"}.
+\code{"absent"}, \code{"empty"}, \code{"ours"} (first line is the
+knitrmini marker) or \code{"other"}. Only \code{"ours"} is kept up to date
+by \code{\link[=knit]{knit()}}; \code{\link[=write_pkg_bib]{write_pkg_bib()}} writes \code{"absent"} and \code{"empty"}
+files, and \code{"other"} only with \code{force = TRUE}.
 }
 \description{
 Who owns a package bibliography

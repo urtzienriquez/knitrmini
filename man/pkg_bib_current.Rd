@@ -17,7 +17,9 @@ pkg_bib_current(file, pkgs, lib = NULL)
 \code{NULL} if the file must be regenerated; otherwise the packages
 recorded as failed (possibly none). The file is current when every package
 has an \code{R-<pkg>} entry or a \code{citation() failed} line, with no
-others, and the recorded versions match the installed ones.
+others, the recorded versions match the installed ones, and the
+DESCRIPTION of each failed package is unchanged (so a fixed package is
+retried even at the same version).
 }
 \description{
 Does a package bibliography have every package at its installed version?

@@ -2,6 +2,11 @@ Package: knitrmini
 Type: Package
 Title: Minimal Knitr Engine for Rnw -> TeX -> PDF
 Version: 0.1.0
+Authors@R: c(
+    person("Urtzi", "Enriquez-Urzelai", email = "uenriquez@proton.me",
+           role = c("aut", "cre")),
+    person("Yihui", "Xie", role = "cph",
+           comment = "author of knitr, on which knitrmini is based"))
 Description: A minimal rewrite of knitr supporting rnoweb (.Rnw) to LaTeX
     to PDF conversion, with full knitr-compatible chunk options and caching.
     Produces clean LaTeX output without knitrout/kframe wrapping.
@@ -19,8 +24,11 @@ Suggests:
     testthat (>= 3.0.0),
     tinytex (>= 0.56),
     roxygen2,
-    renv
+    renv,
+    withr
 License: GPL
+URL: https://github.com/urtzienriquez/knitrmini
+BugReports: https://github.com/urtzienriquez/knitrmini/issues
 Roxygen: list(markdown = TRUE)
 Collate:
     'options.R'

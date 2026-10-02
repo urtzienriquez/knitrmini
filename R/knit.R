@@ -158,7 +158,7 @@ knit <- function(
     }
     if (!quiet) cat("Output: ", out_path, "\n", sep = "")
 
-    if (!child_mode()) update_pkg_bib(dirname(normalizePath(out_path)), out_text, quiet)
+    if (!child_mode()) update_pkg_bib(dirname(normalizePath(out_path)), quiet)
 
     if (!quiet && !child_mode()) {
       style <- opts_knit$get("minted_style") %n% opts_chunk$get("minted_style")
