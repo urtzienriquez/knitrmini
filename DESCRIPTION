@@ -21,6 +21,7 @@ Imports:
     utils,
     methods
 Suggests:
+    yaml,
     testthat (>= 3.0.0),
     tinytex (>= 0.56),
     roxygen2,
@@ -39,10 +40,12 @@ Collate:
     'header.R'
     'engine.R'
     'knit.R'
+    'markdown.R'
     'clean.R'
     'bib.R'
     'tangle.R'
     'table.R'
+    'serve.R'
     'zzz.R'
 Encoding: UTF-8
 RoxygenNote: 7.3.3

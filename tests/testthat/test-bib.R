@@ -272,6 +272,20 @@ test_that("knit keeps a file created by write_pkg_bib up to date", {
   expect_equal(bib_keys(bib), c("R-base", "R-digest", "R-xfun"))
 })
 
+test_that("knit updates the package bibliography beside the source, wherever the output goes", {
+  skip_if_not_installed("digest")
+  d <- new_bib_dir()
+  bib <- file.path(d, "packages.bib")
+  rnw <- write_test_rnw(d)
+  write_pkg_bib(path = d, quiet = TRUE)
+  dir.create(file.path(d, "build"))
+
+  write_test_rnw(d, code = c("x <- xfun::file_ext('a.R')", "y <- digest::digest(1)"))
+  knit(rnw, output = file.path(d, "build", "out.tex"), compile = FALSE, quiet = TRUE)
+  expect_equal(bib_keys(bib), c("R-base", "R-digest", "R-xfun"))
+  expect_false(file.exists(file.path(d, "build", "packages.bib")))
+})
+
 test_that("knit keeps a package bibliography with another name up to date", {
   skip_if_not_installed("digest")
   d <- new_bib_dir()

@@ -44,7 +44,7 @@ split_file <- function(lines, patterns = knit_patterns$get()) {
       } else {
         ""
       }
-      parse_block(g[-1], params.src, markdown_mode = FALSE)
+      parse_block(g[-1], params.src, markdown_mode = isTRUE(patterns$markdown))
     } else {
       parse_inline(g, patterns)
     }
@@ -105,10 +105,29 @@ strip_block <- function(x, prefix = NULL) {
 #' @keywords internal
 parse_block <- function(code, params.src, markdown_mode = FALSE) {
   params <- params.src
-  if (!markdown_mode) {
-    params <- gsub("^\\s*,*\\s*|\\s*,*\\s*$", "", params)
+  engine <- NULL
+  if (markdown_mode) { # ("r label, opt = 1": the engine, then the options; and #| options)
+    engine <- sub("^([a-zA-Z0-9_]+).*$", "\\1", params)
+    params <- sub("^[a-zA-Z0-9_]+", "", params)
+    pipe <- grepl("^#\\|", code)
+    if (any(pipe)) {
+      first <- which(!pipe)[1]
+      lead <- if (is.na(first)) seq_along(code) else seq_len(first - 1)
+      yaml <- sub("^#\\|\\s?", "", code[lead])
+      code <- code[-lead]
+      if (length(yaml)) {
+        extra <- xfun::taml_load(yaml)
+        names(extra) <- gsub("-", ".", names(extra), fixed = TRUE)
+        params <- paste(c(params, sprintf("%s = %s", names(extra), vapply(extra, deparse1, ""))), collapse = ", ")
+      }
+    }
   }
+  params <- gsub("^\\s*,*\\s*|\\s*,*\\s*$", "", params)
   params <- xfun::csv_options(params)
+  if (!is.null(engine) && tolower(engine) != "r") { # (only R runs: the others are shown, as code)
+    params$engine <- engine
+    params$eval <- FALSE
+  }
   if (is.null(params$label)) params$label <- unnamed_chunk()
   label <- params$label
   .knitEnv$labels <- c(.knitEnv$labels, label)
@@ -156,6 +175,17 @@ parse_block <- function(code, params.src, markdown_mode = FALSE) {
   "(?s)\\\\begin\\{lstlisting\\}.*?\\\\end\\{lstlisting\\}"
 )
 
+#' Markdown verbatim patterns
+#'
+#' The R Markdown counterpart of [.verbatim_patterns]: fenced code blocks and
+#' code spans other than inline R code, whose content is not evaluated.
+#' @keywords internal
+.md_verbatim_patterns <- c(
+  # fenced code (```...``` / ~~~...~~~) and code spans other than `r ...`
+  "(?s)(^|\n)[\t >]*(```+|~~~+)[^\n]*\n.*?\n[\t >]*\\2",
+  "(?<!`)`(?!r[ #])[^`\n]+`(?!`)"
+)
+
 #' Protect LaTeX verbatim constructs
 #'
 #' Temporarily replace inline code (e.g. \code{\\Sexpr}) that appears inside
@@ -166,11 +196,13 @@ parse_block <- function(code, params.src, markdown_mode = FALSE) {
 #' @param input A single character string.
 #' @param inline.code Regular expression matching an inline code expression
 #'   (e.g. \code{\\\\Sexpr\\{([^}]+)\\}}).
+#' @param patterns The verbatim patterns ([.verbatim_patterns], or
+#'   [.md_verbatim_patterns] for R Markdown).
 #' @return A list with \code{protected} (the masked text) and \code{original}
 #'   (a named character vector mapping placeholder to original expression).
 #' @keywords internal
-protect_verbatim <- function(input, inline.code) {
-  regions <- verbatim_regions(input)
+protect_verbatim <- function(input, inline.code, patterns = .verbatim_patterns) {
+  regions <- verbatim_regions(input, patterns)
   if (nrow(regions) == 0) {
     return(list(protected = input, original = character()))
   }
@@ -201,11 +233,12 @@ protect_verbatim <- function(input, inline.code) {
 #' by [.verbatim_patterns], merging any overlapping matches.
 #'
 #' @param input A single character string.
+#' @param patterns The verbatim patterns (see [protect_verbatim()]).
 #' @return A matrix with columns \code{start} and \code{end}.
 #' @keywords internal
-verbatim_regions <- function(input) {
+verbatim_regions <- function(input, patterns = .verbatim_patterns) {
   all <- list()
-  for (pat in .verbatim_patterns) {
+  for (pat in patterns) {
     m <- gregexpr(pat, input, perl = TRUE)[[1]]
     if (length(m) == 1 && m[1] == -1) next
     len <- attr(m, "match.length")
@@ -295,7 +328,8 @@ parse_inline <- function(input, patterns) {
     input[idx] <- gsub(inline.code, "\\1", input[idx])
   }
   input <- one_string(input)
-  verbatim <- protect_verbatim(input, inline.code)
+  verbatim <- protect_verbatim(input, inline.code,
+    if (isTRUE(patterns$markdown)) .md_verbatim_patterns else .verbatim_patterns)
   input <- verbatim$protected
   loc <- cbind(start = numeric(0), end = numeric(0))
   if (group_pattern(inline.code)) loc <- str_locate(input, inline.code)[[1]]

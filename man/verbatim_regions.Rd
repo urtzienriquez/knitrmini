@@ -4,10 +4,12 @@
 \alias{verbatim_regions}
 \title{Locate verbatim regions}
 \usage{
-verbatim_regions(input)
+verbatim_regions(input, patterns = .verbatim_patterns)
 }
 \arguments{
 \item{input}{A single character string.}
+
+\item{patterns}{The verbatim patterns (see \code{\link[=protect_verbatim]{protect_verbatim()}}).}
 }
 \value{
 A matrix with columns \code{start} and \code{end}.

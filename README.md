@@ -3,11 +3,11 @@
 [![CI](https://github.com/urtzienriquez/knitrmini/actions/workflows/CI.yml/badge.svg)](https://github.com/urtzienriquez/knitrmini/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/github/urtzienriquez/knitrmini/graph/badge.svg?token=B5L9VSWW7D)](https://codecov.io/github/urtzienriquez/knitrmini)
 
-> Minimal knitr for Rnw to TeX to PDF conversion
+> Minimal knitr for Rnw and Rmd to TeX to PDF conversion
 
 ## Overview
 
-Heavily inspired by and based on [knitr](https://yihui.org/knitr/) — Yihui Xie's excellent and comprehensive literate programming package — **knitrmini** is a stripped-down reimplementation focused exclusively on one workflow: R Noweb (.Rnw) to LaTeX to PDF.
+Heavily inspired by and based on [knitr](https://yihui.org/knitr/) — Yihui Xie's excellent and comprehensive literate programming package — **knitrmini** is a stripped-down reimplementation focused exclusively on one workflow: R Noweb (.Rnw) or R Markdown (.Rmd) to LaTeX to PDF.
 
 ## Philosophy: Least obtrusive, maximum control
 
@@ -21,10 +21,43 @@ knitrmini is designed to be the **least obtrusive** literate programming engine 
 | Warnings (`warning=TRUE`) | `\definecolor{warningcolor}` (magenta) |
 | Messages (`message=TRUE`) | `\definecolor{messagecolor}` (black) |
 | Errors (`error=TRUE`) | `\definecolor{errorcolor}` (red) |
+| Tables written in Markdown (booktabs rules) | `\usepackage{booktabs}` |
+| Links in Markdown (`\href`, `\url`) | `\usepackage{hyperref}` |
+| Tight lists in Markdown (`\tightlist`) | its one-line definition |
 
 Each injection is **conditional**: if you already have `\usepackage{graphicx}` in your .Rnw preamble, it won't be added. If you already defined `\maxwidth`, it won't be duplicated. The result is a TeX file that looks like you wrote it yourself — because knitrmini stays out of your way.
 
 This means **you are responsible for writing proper LaTeX**. But in exchange, you have full control over the final document — no unexpected wrappers, no hidden boilerplate.
+
+## R Markdown
+
+An `.Rmd` file is knitted exactly like an `.Rnw` one. Its chunks run with the same hooks, so their output is the same LaTeX. Children, the label snapshot, package citations and the conditional preamble all work the same way. Its prose becomes LaTeX with pandoc: the body only, through a small filter, so the result reads like hand-written LaTeX, with no template boilerplate:
+
+- `[@a]` becomes `\autocite{a}` and `@a` becomes `\textcite{a}` (biblatex).
+- bookdown's `\@ref(x)`, and labels in captions (`(\#tab:x)`, `{#x}`), become `\ref{x}` and `\label{x}`.
+- Figures are a `figure` environment with `\includegraphics`.
+- Tables are a booktabs `tabular`, inside a `table` environment when they have a caption.
+- Math is written `$...$`.
+- Only headings with an explicit `{#id}` get a label.
+
+The document around the body comes from a few YAML keys, and nothing else:
+
+```yaml
+---
+documentclass: article          # (the default)
+classoption: [12pt, a4paper]
+preamble: 00_preamble.tex       # your packages and macros (a file, or a list of them)
+header-includes: \usepackage{amsmath}
+bibliography: references.bib    # \addbibresource; biblatex loaded unless your preamble does
+biblatex: style=authoryear
+title: A paper                  # \title, \author, \date, \maketitle and the abstract,
+author: [Ann Writer, Bob Reader] # when given
+abstract: What we found.
+print-bibliography: false       # (else \printbibliography at the end, if anything is cited)
+---
+```
+
+Chunks are written ```` ```{r label, opt = value} ````, with knitr's options (also as `#|` lines). Inline code is written `` `r expr` ``. Only R chunks run; chunks in other languages are shown as code. Rendering needs pandoc, but neither rmarkdown nor a LaTeX template.
 
 ## Usage
 
@@ -228,6 +261,7 @@ The tree-sitter-rnoweb repo also ships [`literateR-fmt`](https://github.com/urtz
 - **highr** — syntax highlighting for R code
 - **xfun** — miscellaneous utilities
 - **digest** — MD5 hashing for cache keys
+- **pandoc** (for R Markdown) — the prose to LaTeX; **yaml** (suggested) reads YAML headers
 - **tinytex** (suggested) — automatic LaTeX installation
 
 ## License

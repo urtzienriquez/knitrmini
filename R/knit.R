@@ -50,6 +50,7 @@ knit <- function(
   } else {
     on.exit(chunk_counter(reset = TRUE), add = TRUE)
     on.exit(plot_counter(reset = TRUE), add = TRUE)
+    on.exit(knit_patterns$restore(), add = TRUE) # (an .Rmd's: not left for the next knit)
     on.exit(
       {
         if (opts_knit$get("global.device")) dev.off()
@@ -58,6 +59,7 @@ knit <- function(
     )
     opts_chunk$restore()
     opts_knit$restore()
+    opts_knit$set(progress = !quiet) # (quiet: no "  | chunk" lines either)
     knit_code$restore()
     dep_list$restore()
     .knitEnv$labels <- character()
@@ -85,22 +87,34 @@ knit <- function(
     .knitEnv$has_user_knitbg <- has_user_knitbg
   }
 
-  if (!child_mode() && !is.null(text) && length(text)) {
-    check_color_definition(strip_latex_comments(one_string(text)))
-  }
-
   txt <- one_string(text)
 
   ext <- tolower(xfun::file_ext(input))
-  if (is.null(detect_pattern(txt, ext))) {
+  pattern_name <- detect_pattern(txt, ext)
+  if (is.null(pattern_name)) {
     stop("Failed to detect the pattern for the input file.")
+  }
+  # R Markdown: its YAML header aside (the document is made from it at the end, see markdown.R)
+  is_md <- !child_mode() && identical(pattern_name, "md")
+  yaml <- NULL
+  if (is_md) {
+    parts <- md_split_yaml(text)
+    yaml <- parts$yaml
+    text <- parts$body
+  }
+
+  if (!child_mode() && !is_md && !is.null(text) && length(text)) {
+    check_color_definition(strip_latex_comments(one_string(text)))
   }
 
   if (!child_mode()) {
-    pattern_name <- detect_pattern(txt, ext)
-    if (!is.null(pattern_name)) knit_patterns$restore(all_patterns[[pattern_name]])
-    render_latex()
-    set_preamble(text)
+    knit_patterns$restore(all_patterns[[pattern_name]])
+    if (is_md) {
+      render_markdown_latex()
+    } else {
+      render_latex()
+      set_preamble(text)
+    }
   }
 
   if (!quiet) cat("Processing ", input, "\n", sep = "")
@@ -123,14 +137,25 @@ knit <- function(
   }
   out_text <- paste(split_lines(out_text), collapse = "\n")
 
+  if (is_md) { # (its prose, knitted, to LaTeX; the document around it from its YAML header)
+    out_text <- md_document(md_to_latex(out_text), yaml, input_dir())
+  }
+
   if (opts_knit$get("resolve_input")) {
     out_text <- resolve_inputs(out_text)
   }
 
   out_text <- insert_header(out_text)
 
+  # (figure paths as written when the .tex goes beside its source, the one to publish; absolute
+  # when it goes elsewhere, where they must still be found)
+  out_dir <- if (in.file) dirname(normalize_path(output_file %n% guess_output(input))) else NA
   if (opts_knit$get("normalize_paths")) {
-    out_text <- resolve_includegraphics(out_text, input_dir())
+    out_text <- if (identical(out_dir, normalize_path(input_dir()))) {
+      relative_includegraphics(out_text, out_dir) # (chunks' figures, saved with absolute paths)
+    } else {
+      resolve_includegraphics(out_text, input_dir())
+    }
   }
 
   out_text <- clean_output(out_text)
@@ -158,7 +183,8 @@ knit <- function(
     }
     if (!quiet) cat("Output: ", out_path, "\n", sep = "")
 
-    if (!child_mode()) update_pkg_bib(dirname(normalizePath(out_path)), quiet)
+    # (the .bib files beside the source: those the document reads, wherever its output goes)
+    if (!child_mode()) update_pkg_bib(dirname(normalizePath(input)), quiet)
 
     if (!quiet && !child_mode()) {
       style <- opts_knit$get("minted_style") %n% opts_chunk$get("minted_style")
@@ -205,7 +231,7 @@ knit <- function(
 
 guess_output <- function(input) {
   ext <- tolower(xfun::file_ext(input))
-  if (ext %in% c("rnw", "snw", "stex")) {
+  if (ext %in% c("rnw", "snw", "stex", "rmd", "qmd")) {
     paste0(xfun::sans_ext(input), ".tex")
   } else {
     paste0(input, "-out.tex")
@@ -824,6 +850,33 @@ resolve_includegraphics <- function(doc, input_dir) {
       idx <- m + nchar(new_matched)
     } else {
       idx <- m + match_len
+    }
+  }
+  doc
+}
+
+#' Make includegraphics paths relative
+#'
+#' Absolute paths in \code{\\includegraphics} to files inside \code{dir} become
+#' relative to it (the figures of chunks, saved with absolute paths, in a
+#' \code{.tex} written beside its source); the others stay as they are.
+#'
+#' @param doc LaTeX document string.
+#' @param dir The output's directory.
+#' @return Document string.
+#' @keywords internal
+relative_includegraphics <- function(doc, dir) {
+  prefix <- paste0(sub("/+$", "", dir), "/")
+  pattern <- "(\\\\includegraphics\\*?(?:\\[[^]]*(?:\\{[^}]*\\}[^]]*)*\\])?\\{)([^}]+)(\\})"
+  m <- gregexpr(pattern, doc, perl = TRUE)[[1]]
+  if (m[1] == -1) return(doc)
+  starts <- attr(m, "capture.start")[, 2]
+  lens <- attr(m, "capture.length")[, 2]
+  for (k in rev(seq_along(starts))) {
+    path <- substr(doc, starts[k], starts[k] + lens[k] - 1)
+    if (startsWith(path, prefix)) {
+      doc <- paste0(substr(doc, 1, starts[k] - 1), substring(path, nchar(prefix) + 1),
+        substr(doc, starts[k] + lens[k], nchar(doc)))
     }
   }
   doc

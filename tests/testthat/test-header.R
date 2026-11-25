@@ -125,6 +125,24 @@ test_that("insert_header adds header before document begin", {
   expect_true(grepl("graphicx", result))
 })
 
+test_that("insert_header skips a \\begin{document} in a comment", {
+  old_fmt <- opts_knit$get("out.format")
+  on.exit(opts_knit$set(out.format = old_fmt))
+  opts_knit$set(out.format = "latex")
+  doc <- paste0(
+    "\\documentclass{article}\n",
+    "% read before \\begin{document}: a comment\n",
+    "50\\% \\textbf{x} % and \\begin{document} again\n",
+    "\\begin{document}\n\\begin{Shaded}x\\end{Shaded}\n\\end{document}"
+  )
+  result <- knitrmini:::insert_header(doc)
+  lines <- strsplit(result, "\n")[[1]]
+  expect_equal(lines[2], "% read before \\begin{document}: a comment")
+  expect_equal(lines[3], "50\\% \\textbf{x} % and \\begin{document} again")
+  expect_true(which(grepl("Shaded", lines))[1] > 3) # (the header: after the comments)
+  expect_true(which(grepl("Shaded", lines))[1] < which(lines == "\\begin{document}"))
+})
+
 test_that("insert_header returns unchanged for non-latex format", {
   old <- opts_knit$get("out.format")
   on.exit(opts_knit$set(out.format = old))

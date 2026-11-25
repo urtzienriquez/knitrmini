@@ -393,7 +393,6 @@ as.source <- function(code) {
 }
 
 call_inline <- function(block) {
-  if (opts_knit$get("progress")) cat("  | inline\n")
   in_input_dir(inline_exec(block))
 }
 
@@ -440,6 +439,7 @@ knit_child <- function(child) {
 
   content <- xfun::read_utf8(child_path)
   patterns <- knit_patterns$get()
+  if (isTRUE(patterns$markdown)) content <- md_split_yaml(content)$body # (a YAML header: not text)
   groups <- split_file(content, patterns = patterns)
 
   output <- character(length(groups))

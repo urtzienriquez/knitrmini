@@ -5,7 +5,7 @@
 \alias{all_patterns}
 \title{All pattern lists}
 \format{
-A named list with one entry \code{rnw} containing:
+A named list with entries \code{rnw} and \code{md}; \code{rnw} contains:
 \describe{
 \item{chunk.begin}{Pattern for chunk start (\code{<<...>>=})}
 \item{chunk.end}{Pattern for chunk end (\code{@})}
@@ -20,8 +20,8 @@ A named list with one entry \code{rnw} containing:
 all_patterns
 }
 \description{
-A list of pattern lists for different document types. Currently only \code{rnw}
-is defined, containing regex patterns for chunk delimiters, inline code,
-and document structure markers.
+A list of pattern lists for different document types: \code{rnw} (Rnoweb)
+and \code{md} (R Markdown), with regex patterns for chunk delimiters, inline
+code, and document structure markers.
 }
 \keyword{datasets}

@@ -12,7 +12,7 @@ detect_pattern(text, ext)
 \item{ext}{File extension (lowercase).}
 }
 \value{
-Pattern name (currently \code{"rnw"}) or \code{NULL}.
+Pattern name (\code{"rnw"} or \code{"md"}) or \code{NULL}.
 }
 \description{
 Detect which pattern list to use based on file extension or document content.

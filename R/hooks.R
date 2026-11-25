@@ -129,6 +129,42 @@ render_latex <- function() {
   knit_hooks$set(hooks_latex())
 }
 
+#' Set up LaTeX output hooks for R Markdown
+#'
+#' The same hooks as [render_latex()], each piece of a chunk's output (source,
+#' text output, messages, figures) wrapped in a raw LaTeX block
+#' (\code{````\{=latex\}}), so that pandoc passes it through untouched when the
+#' prose around it becomes LaTeX. Output with \code{results = "asis"} is left as
+#' it is: Markdown (and any raw LaTeX in it), as in knitr.
+#'
+#' @export
+render_markdown_latex <- function() {
+  render_latex()
+  h <- hooks_latex()
+  for (n in c("source", "output", "warning", "message", "error", "plot")) {
+    h[[n]] <- local({
+      f <- h[[n]]
+      name <- n
+      function(x, options) {
+        r <- f(x, options)
+        if (name == "output" && output_asis(x, options)) r else raw_latex(r)
+      }
+    })
+  }
+  h$chunk <- function(x, options) {
+    if (output_asis(x, options) || identical(options$size, "normalsize")) return(x)
+    paste0(raw_latex(sprintf("{\\%s", options$size)), x, raw_latex("}"))
+  }
+  knit_hooks$set(h)
+}
+
+# LaTeX as a raw block of Markdown (nothing, if there is nothing in it).
+raw_latex <- function(x) {
+  x <- one_string(x)
+  if (!length(x) || !nzchar(trimws(x))) return(x)
+  paste0("\n\n````{=latex}\n", sub("\n+$", "", sub("^\n+", "", x)), "\n````\n\n")
+}
+
 #' Render figures to LaTeX
 #'
 #' Generate LaTeX code to include figure files with the given chunk options.

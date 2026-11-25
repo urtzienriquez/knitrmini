@@ -4,10 +4,13 @@
 \alias{protect_verbatim}
 \title{Protect LaTeX verbatim constructs}
 \usage{
-protect_verbatim(input, inline.code)
+protect_verbatim(input, inline.code, patterns = .verbatim_patterns)
 }
 \arguments{
 \item{input}{A single character string.}
+
+\item{patterns}{The verbatim patterns (\link{.verbatim_patterns}, or
+\link{.md_verbatim_patterns} for R Markdown).}
 }
 \value{
 A list with \code{protected} (the masked text) and \code{original}

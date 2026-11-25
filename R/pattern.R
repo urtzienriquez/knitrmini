@@ -1,10 +1,10 @@
 #' All pattern lists
 #'
-#' A list of pattern lists for different document types. Currently only \code{rnw}
-#' is defined, containing regex patterns for chunk delimiters, inline code,
-#' and document structure markers.
+#' A list of pattern lists for different document types: \code{rnw} (Rnoweb)
+#' and \code{md} (R Markdown), with regex patterns for chunk delimiters, inline
+#' code, and document structure markers.
 #'
-#' @format A named list with one entry \code{rnw} containing:
+#' @format A named list with entries \code{rnw} and \code{md}; \code{rnw} contains:
 #' \describe{
 #'   \item{chunk.begin}{Pattern for chunk start (\code{<<...>>=})}
 #'   \item{chunk.end}{Pattern for chunk end (\code{@})}
@@ -24,6 +24,16 @@ all_patterns <- list(
     ref.chunk = "^\\s*<<(.+)>>\\s*$",
     header.begin = "(^|\n)\\s*\\\\documentclass[^}]+\\}",
     document.begin = "\\s*\\\\begin\\{document\\}"
+  ),
+  # R Markdown: ```{r label, opt = value} ... ```, `r expr`; its prose becomes LaTeX with pandoc
+  # (see markdown.R), so the document markers are those of the LaTeX it becomes
+  `md` = list(
+    chunk.begin = "^[\t >]*```+\\s*\\{([a-zA-Z0-9_]+( *[ ,].*)?)\\}\\s*$",
+    chunk.end = "^[\t >]*```+\\s*$",
+    chunk.code = "^[\t >]*",
+    inline.code = "`r[ #]([^`]+)\\s*`",
+    ref.chunk = "^\\s*<<(.+)>>\\s*$",
+    markdown = TRUE
   )
 )
 
@@ -33,11 +43,14 @@ all_patterns <- list(
 #'
 #' @param text Document text as a character vector.
 #' @param ext File extension (lowercase).
-#' @return Pattern name (currently \code{"rnw"}) or \code{NULL}.
+#' @return Pattern name (\code{"rnw"} or \code{"md"}) or \code{NULL}.
 #' @keywords internal
 detect_pattern <- function(text, ext) {
   if (ext %in% c("rnw", "snw", "stex")) {
     return("rnw")
+  }
+  if (ext %in% c("rmd", "qmd", "md", "markdown")) {
+    return("md")
   }
   lines <- split_lines(text)
   if (is.null(lines) || length(lines) == 0) return(NULL)

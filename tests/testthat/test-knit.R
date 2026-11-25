@@ -2,7 +2,8 @@ test_that("guess_output handles extensions", {
   expect_equal(knitrmini:::guess_output("file.Rnw"), "file.tex")
   expect_equal(knitrmini:::guess_output("file.snw"), "file.tex")
   expect_equal(knitrmini:::guess_output("file.stex"), "file.tex")
-  expect_equal(knitrmini:::guess_output("file.Rmd"), "file.Rmd-out.tex")
+  expect_equal(knitrmini:::guess_output("file.Rmd"), "file.tex")
+  expect_equal(knitrmini:::guess_output("file.qmd"), "file.tex")
   expect_equal(knitrmini:::guess_output("file.tex"), "file.tex-out.tex")
 })
 

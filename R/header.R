@@ -54,17 +54,16 @@ insert_header <- function(doc) {
     return(doc)
   }
 
-  b <- knit_patterns$get("document.begin")
+  b <- knit_patterns$get("document.begin") %n% all_patterns$rnw$document.begin
   if (is.null(b)) {
     return(doc)
   }
 
-  m <- regexpr(b, doc, perl = TRUE)
-  if (m == -1) {
+  pos <- uncommented_match(b, doc)
+  if (is.na(pos)) {
     return(doc)
   }
 
-  pos <- as.integer(m)
   before <- substr(doc, 1, pos - 1)
   after <- sub("^\n+", "", substr(doc, pos, nchar(doc)))
   if (grepl("\n$", before)) {
@@ -72,6 +71,19 @@ insert_header <- function(doc) {
   } else {
     paste0(before, "\n", header, "\n", after)
   }
+}
+
+# Where `pattern` first matches in `doc` outside a comment (no unescaped % before it on its line):
+# a "\begin{document}" in a comment of the preamble is no \begin{document}. NA if nowhere.
+uncommented_match <- function(pattern, doc) {
+  m <- gregexpr(pattern, doc, perl = TRUE)[[1]]
+  for (pos in m[m > 0]) {
+    # (from the start of its line; the pattern may begin with the spaces of the line before)
+    at <- pos + attr(regexpr("^\\s*", substr(doc, pos, nchar(doc)), perl = TRUE), "match.length")
+    line <- sub(".*\n", "", substr(doc, 1, at - 1))
+    if (!grepl("(^|[^\\\\])(\\\\\\\\)*%", line, perl = TRUE)) return(pos)
+  }
+  NA_integer_
 }
 
 make_header_latex <- function(doc) {
@@ -145,6 +157,18 @@ build_preamble <- function(doc) {
     }
   }
 
+  if (grepl("\\\\(toprule|midrule|bottomrule)", doc) && !has_package(doc, "booktabs")) {
+    needed <- c(needed, "\\usepackage{booktabs}")
+  }
+
+  if (grepl("\\\\(href|url)\\{", doc) && !has_package(doc, "hyperref") && !has_package(doc, "url")) {
+    needed <- c(needed, "\\usepackage{hyperref}")
+  }
+
+  if (grepl("\\\\tightlist", doc) && !has_newcommand(doc, "tightlist")) {
+    needed <- c(needed, "\\providecommand{\\tightlist}{\\setlength{\\itemsep}{0pt}\\setlength{\\parskip}{0pt}}")
+  }
+
   if (grepl("\\\\maxwidth", doc)) {
     needed <- c(needed, .header.maxwidth)
   }
@@ -201,14 +225,15 @@ build_preamble <- function(doc) {
 #' @param pkg Package name to check.
 #' @return \code{TRUE} if the package is loaded in the document preamble.
 #' @keywords internal
-has_package <- function(doc, pkg) {
-  grepl(sprintf("\\\\usepackage(\\[.*?\\])?\\{%s\\}", pkg), strip_latex_comments(doc), perl = TRUE)
+has_package <- function(doc, pkg) { # (\usepackage{pkg}, or in a list: \usepackage{a,pkg})
+  grepl(sprintf("\\\\(usepackage|RequirePackage)(\\[.*?\\])?\\{([^}]*,)?\\s*%s\\s*(,[^}]*)?\\}", pkg),
+    strip_latex_comments(doc), perl = TRUE)
 }
 
 #' Check if LaTeX command is defined
 #' @keywords internal
 has_newcommand <- function(doc, cmd) {
-  grepl(sprintf("\\\\newcommand(\\*)?\\{%s\\}", cmd), strip_latex_comments(doc), perl = TRUE)
+  grepl(sprintf("\\\\(newcommand|renewcommand|providecommand)(\\*)?\\{\\\\?%s\\}", cmd), strip_latex_comments(doc), perl = TRUE)
 }
 
 #' Check if LaTeX environment is defined
@@ -238,22 +263,6 @@ has_defineverbatimenvironment <- function(doc, env) {
 #' @return Document string with comments removed.
 #' @keywords internal
 strip_latex_comments <- function(doc) {
-  lines <- split_lines(doc)
-  for (i in seq_along(lines)) {
-    line <- lines[[i]]
-    chars <- strsplit(line, "")[[1]]
-    j <- 1
-    n <- length(chars)
-    while (j <= n) {
-      if (chars[j] == "\\" && j < n) {
-        j <- j + 2
-      } else if (chars[j] == "%") {
-        lines[[i]] <- substr(line, 1, j - 1)
-        break
-      } else {
-        j <- j + 1
-      }
-    }
-  }
-  paste(lines, collapse = "\n")
+  # (from a % after an even number of backslashes, or none, to the end of its line)
+  gsub("(?m)(?<!\\\\)((?:\\\\\\\\)*)%.*$", "\\1", paste(split_lines(doc), collapse = "\n"), perl = TRUE)
 }
