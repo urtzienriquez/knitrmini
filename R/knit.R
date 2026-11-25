@@ -58,6 +58,10 @@ knit <- function(
       add = TRUE
     )
     opts_chunk$restore()
+    # (where an editor wants chunks' figures by default, KNITRMINI_FIG_PATH: manuscript.nvim's are
+    # out of the manuscript's folder; a fig.path the document sets still wins)
+    fig_path <- Sys.getenv("KNITRMINI_FIG_PATH")
+    if (nzchar(fig_path)) opts_chunk$set(fig.path = fig_path)
     opts_knit$restore()
     opts_knit$set(progress = !quiet) # (quiet: no "  | chunk" lines either)
     knit_code$restore()

@@ -218,3 +218,21 @@ test_that("knit2pdf runs full knit + compile pipeline", {
   expect_true(file.exists(result))
   expect_match(result, "\\.pdf$")
 })
+
+test_that("KNITRMINI_FIG_PATH sets where chunks' figures go by default; the document's fig.path wins", {
+  d <- withr::local_tempdir()
+  writeLines(c("\\documentclass{article}", "\\begin{document}", "<<p>>=", "plot(1)", "@", "\\end{document}"),
+    file.path(d, "a.Rnw"))
+  writeLines(c("\\documentclass{article}", "\\begin{document}",
+    "<<setup, include=FALSE>>=", "knitrmini::opts_chunk$set(fig.path = 'mine/')", "@",
+    "<<p>>=", "plot(1)", "@", "\\end{document}"), file.path(d, "b.Rnw"))
+  withr::with_envvar(c(KNITRMINI_FIG_PATH = ".build/figure/"), withr::with_dir(d, {
+    knit("a.Rnw", compile = FALSE, quiet = TRUE)
+    knit("b.Rnw", compile = FALSE, quiet = TRUE)
+  }))
+  expect_true(file.exists(file.path(d, ".build", "figure", "p-1.pdf")))
+  expect_false(dir.exists(file.path(d, "figure")))
+  expect_true(file.exists(file.path(d, "mine", "p-1.pdf")))
+  withr::with_dir(d, knit("a.Rnw", compile = FALSE, quiet = TRUE)) # (unset: as always)
+  expect_true(file.exists(file.path(d, "figure", "p-1.pdf")))
+})
