@@ -750,7 +750,9 @@ check_label_numbers <- function(labels, full) {
 #' @return Document string with external references replaced.
 #' @keywords internal
 resolve_external_refs <- function(doc, labels) {
-  defined <- regmatches(doc, gregexpr("\\\\label\\{([^}]+)\\}", doc, perl = TRUE))[[1]]
+  # (the labels it defines: not those in its comments)
+  code <- strip_latex_comments(doc)
+  defined <- regmatches(code, gregexpr("\\\\label\\{([^}]+)\\}", code, perl = TRUE))[[1]]
   defined <- sub("^\\\\label\\{(.*)\\}$", "\\1", defined)
 
   pattern <- "(?<![A-Za-z@])\\\\(ref|pageref|eqref)\\*?\\{([^}]+)\\}"

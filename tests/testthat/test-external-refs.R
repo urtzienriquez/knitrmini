@@ -107,3 +107,10 @@ test_that("skipped children: references resolved from the last full build", {
     "eq:b \\(1 vs 2\\)"
   )
 })
+
+test_that("resolve_external_refs: a label in a comment isn't one the document defines", {
+  labels <- c(appendix1 = "{1}{4}{}{appendix.1}{}")
+  doc <- "% after its title block, \\label{appendix1} refers to 1\nsee Appendix~\\ref{appendix1}."
+  expect_equal(resolve_external_refs(doc, labels),
+    "% after its title block, \\label{appendix1} refers to 1\nsee Appendix~1.")
+})

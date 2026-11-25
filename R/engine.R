@@ -72,10 +72,20 @@ set_code <- function(label, code) {
 }
 
 block_exec <- function(options) {
+  # (the options of the chunk running, for what its code calls: kable()'s caption and label)
+  old <- .knitEnv$current
+  .knitEnv$current <- options
+  on.exit(.knitEnv$current <- old, add = TRUE)
   if (options$engine == "R") {
     return(eng_r(options))
   }
   options$engine
+}
+
+# An option of the chunk running (what its header says, or the default), else of opts_chunk.
+current_option <- function(name) {
+  cur <- .knitEnv$current
+  if (!is.null(cur) && !is.null(cur[[name]])) cur[[name]] else opts_chunk$get(name)
 }
 
 eng_r <- function(options) {

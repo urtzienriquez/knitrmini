@@ -50,7 +50,7 @@
 #' kable(mtcars[1:5, 1:4], raw = TRUE)
 kable <- function(
   x, digits = getOption("digits"), row.names = NA, col.names = NA,
-  align, caption = opts_chunk$get("tab.cap"), label = NULL,
+  align, caption = current_option("tab.cap"), label = NULL,
   format.args = list(), escape = TRUE, raw = FALSE, booktabs = FALSE,
   longtable = FALSE,
   tabular = if (longtable) "longtable" else "tabular",
@@ -123,9 +123,8 @@ kable <- function(
 }
 
 kable_caption <- function(label, caption) {
-  if (is.null(label)) {
-    labels <- .knitEnv$labels %n% character()
-    label <- if (length(labels)) tail(labels, 1) else NA
+  if (is.null(label)) { # (the chunk's)
+    label <- current_option("label") %n% NA
   }
   if (!is.null(caption) && !anyNA(caption) && !anyNA(label)) {
     caption <- paste0(create_label(label), caption)

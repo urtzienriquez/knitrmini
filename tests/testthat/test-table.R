@@ -106,3 +106,16 @@ test_that("kable with explicit label", {
   res <- kable(mtcars[1:2, 1:3], caption = "Labelled", label = "testtab")
   expect_true(grepl("\\\\label\\{tab:testtab\\}", res))
 })
+
+test_that("kable in a chunk: its caption from the chunk's tab.cap, its label from the chunk's", {
+  d <- withr::local_tempdir()
+  writeLines(c("\\documentclass{article}", "\\begin{document}",
+    "<<first, tab.cap='The first table.'>>=", "kable(data.frame(a = 1:2))", "@",
+    "<<second, tab.cap='The second table.'>>=", "kable(data.frame(b = 3:4))", "@",
+    "<<third>>=", "1 + 1", "@", "\\end{document}"), file.path(d, "t.Rnw"))
+  out <- paste(readLines(withr::with_dir(d, knit("t.Rnw", compile = FALSE, quiet = TRUE))), collapse = "\n")
+  expect_match(out, "\\label{tab:first}\nThe first table.", fixed = TRUE)
+  expect_match(out, "\\label{tab:second}\nThe second table.", fixed = TRUE)
+  expect_equal(lengths(regmatches(out, gregexpr("\\begin{table}", out, fixed = TRUE))), 2)
+  expect_null(knitrmini:::.knitEnv$current) # (none, after the knit)
+})
